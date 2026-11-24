@@ -1,0 +1,257 @@
+using SawooPlates.Capture;
+using SawooPlates.PortraitEditor.Services;
+
+namespace SawooPlates.Windows;
+
+/// <summary>
+/// The list of things that make up a plate (portrait parts, plate design, gear), each with
+/// whether the player has it. Kept short: icon, name, what it is, and a check or cross.
+/// </summary>
+public sealed class PlateItems(
+    ITextureProvider textures,
+    ExcelService excel,
+    BannerService bannerService,
+    CollectionService collection)
+{
+    private sealed record Row(uint IconId, string Name, string Kind, Ownership Own, List<(uint Rgb, string Name)>? Dyes = null, uint PreviewId = 0, string? Extra = null);
+
+    private sealed record Group(string Title, List<Row> Rows)
+    {
+        public int Have => Rows.Count(r => r.Own.State == OwnState.Have);
+        public int Missing => Rows.Count(r => r.Own.State == OwnState.Missing);
+    }
+
+    /// <summary>Number of known-missing things, for the summary line.</summary>
+    public int CountMissing(CapturedPortrait? capture, PortraitPresetData preset, bool frameKnown, bool decorationKnown)
+        => BuildGroups(capture, preset, frameKnown, decorationKnown).Sum(g => g.Missing);
+
+    public void Draw(CapturedPortrait? capture, PortraitPresetData preset, bool frameKnown = true, bool decorationKnown = true, bool gearPending = false)
+    {
+        var groups = BuildGroups(capture, preset, frameKnown, decorationKnown);
+
+        foreach (var group in groups)
+        {
+            var known = group.Rows.Count(r => r.Own.State != OwnState.Unknown);
+            Ui.Section(group.Title, known > 0 ? $"{group.Have}/{known}" : null);
+            DrawRows(group);
+        }
+
+        if (capture != null && capture.Gear.Count == 0)
+        {
+            Ui.Section("Gear");
+            ImGui.TextColored(Ui.Dim, gearPending
+                ? "Reading gear..."
+                : "No gear was read for this portrait. Open the plate again to fill it in.");
+        }
+    }
+
+    private void DrawRows(Group group)
+    {
+        var icon = 30 * Ui.Scale;
+
+        using var table = ImRaii.Table($"##{group.Title}", 3, ImGuiTableFlags.None);
+        if (!table)
+            return;
+
+        ImGui.TableSetupColumn("Icon", ImGuiTableColumnFlags.WidthFixed, icon);
+        ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.WidthStretch);
+        ImGui.TableSetupColumn("Own", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFrameHeight());
+
+        foreach (var (row, index) in group.Rows.Select((r, i) => (r, i)))
+        {
+            using var id = ImRaii.PushId(index);
+            ImGui.TableNextRow();
+
+            ImGui.TableNextColumn();
+            var rowMin = ImGui.GetCursorScreenPos();
+            Ui.IconFit(textures, row.IconId, icon);
+
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(row.Name);
+
+            if (row.Dyes is { Count: > 0 })
+            {
+                ImGui.TextColored(Ui.Dim, row.Kind);
+                foreach (var dye in row.Dyes)
+                {
+                    ImGui.SameLine(0, 10 * Ui.Scale);
+                    Ui.DyeChip(dye.Rgb, dye.Name);
+                }
+            }
+            else
+            {
+                ImGui.TextColored(Ui.Dim, row.Kind);
+            }
+
+            ImGui.TableNextColumn();
+            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + (icon - ImGui.GetTextLineHeight()) / 2f);
+            Ui.OwnBadge(row.Own, tooltip: false);
+
+            // whole row is the hover target for the details tooltip
+            var rowMax = new Vector2(ImGui.GetWindowPos().X + ImGui.GetWindowContentRegionMax().X, rowMin.Y + icon);
+            if (ImGui.IsWindowHovered() && ImGui.IsMouseHoveringRect(rowMin, rowMax))
+                DrawTooltip(row);
+        }
+    }
+
+    private void DrawTooltip(Row row)
+    {
+        using var tooltip = ImRaii.Tooltip();
+        var wrap = ImGui.GetFontSize() * 20;
+
+        var preview = row.PreviewId != 0 ? row.PreviewId : row.IconId;
+        if (preview != 0)
+        {
+            Ui.IconFit(textures, preview, row.PreviewId != 0 ? 160 * Ui.Scale : 64 * Ui.Scale);
+            ImGui.Spacing();
+        }
+
+        ImGui.TextColored(Ui.Accent, row.Name);
+        ImGui.TextColored(Ui.Dim, row.Kind);
+
+        if (row.Extra != null)
+            ImGui.TextUnformatted(row.Extra);
+
+        if (row.Dyes is { Count: > 0 })
+        {
+            foreach (var dye in row.Dyes)
+                Ui.DyeChip(dye.Rgb, dye.Name);
+        }
+
+        ImGui.Spacing();
+        switch (row.Own.State)
+        {
+            case OwnState.Have:
+                Ui.Icon(FontAwesomeIcon.Check, Ui.Good);
+                ImGui.SameLine();
+                ImGui.TextColored(Ui.Good, row.Own.Where is { } where ? $"You have this ({where})" : "You have this");
+                break;
+
+            case OwnState.Missing:
+                Ui.Icon(FontAwesomeIcon.Times, Ui.Bad);
+                ImGui.SameLine();
+                ImGui.TextColored(Ui.Bad, "You don't have this");
+                break;
+
+            default:
+                Ui.Icon(FontAwesomeIcon.Question, Ui.Dim);
+                ImGui.SameLine();
+                ImGui.TextColored(Ui.Dim, "Can't be checked");
+                break;
+        }
+
+        if (row.Own.Hint != null)
+        {
+            using (ImRaii.TextWrapPos(wrap))
+                ImGui.TextUnformatted(row.Own.Hint);
+        }
+    }
+
+    private List<Group> BuildGroups(CapturedPortrait? capture, PortraitPresetData preset, bool frameKnown, bool decorationKnown)
+    {
+        var groups = new List<Group>();
+
+        // --- portrait
+        var portrait = new List<Row>();
+
+        if (excel.TryGetRow<BannerBg>(preset.BannerBg, out var bg))
+            portrait.Add(new Row((uint)bg.Icon, bg.Name.ToString(), "Background", collection.BannerBg(preset.BannerBg), PreviewId: (uint)bg.Image));
+
+        if (!frameKnown)
+            portrait.Add(new Row(0, "Not shown on this screen", "Frame", Ownership.Unknown("Party and MVP portraits don't show the frame.")));
+        else if (excel.TryGetRow<BannerFrame>(preset.BannerFrame, out var frame))
+            portrait.Add(new Row((uint)frame.Icon, frame.Name.ToString(), "Frame", collection.BannerFrame(preset.BannerFrame), PreviewId: (uint)frame.Image));
+
+        if (!decorationKnown)
+            portrait.Add(new Row(0, "Not shown on this screen", "Accent", Ownership.Unknown("Party and MVP portraits don't show the accent.")));
+        else if (excel.TryGetRow<BannerDecoration>(preset.BannerDecoration, out var accent))
+            portrait.Add(new Row((uint)accent.Icon, accent.Name.ToString(), "Accent", collection.BannerDecoration(preset.BannerDecoration), PreviewId: (uint)accent.Image));
+
+        var poseIcon = excel.TryGetRow<BannerTimeline>(preset.BannerTimeline, out var pose) ? (uint)pose.Icon : 0u;
+        portrait.Add(new Row(poseIcon, bannerService.GetBannerTimelineName(preset.BannerTimeline), "Pose", collection.BannerTimeline(preset.BannerTimeline)));
+
+        if (preset.Expression == 0)
+        {
+            portrait.Add(new Row(0, "None", "Expression", new Ownership(OwnState.Have)));
+        }
+        else if (excel.TryGetRow<BannerFacial>(preset.Expression, out var facial) && excel.TryGetRow<Emote>(facial.Emote.RowId, out var emote))
+        {
+            portrait.Add(new Row(emote.Icon, emote.Name.ToString(), "Expression", collection.Expression(preset.Expression)));
+        }
+
+        groups.Add(new Group("Portrait", portrait));
+
+        // --- plate design
+        if (capture?.Plate is { } plate)
+        {
+            var rows = new List<Row>();
+
+            if (plate.BasePlate != 0 && excel.TryGetRow<CharaCardBase>(plate.BasePlate, out var basePlate))
+                rows.Add(new Row((uint)basePlate.Image, basePlate.Name.ToString(), "Base plate", collection.PlateBase(plate.BasePlate), PreviewId: (uint)basePlate.Image));
+
+            if (plate.TopBorder != 0 && excel.TryGetRow<CharaCardHeader>(plate.TopBorder, out var top))
+                rows.Add(new Row((uint)top.TopImage, top.Name.ToString(), "Top border", collection.PlateHeader(plate.TopBorder), PreviewId: (uint)top.TopImage));
+
+            if (plate.BottomBorder != 0 && excel.TryGetRow<CharaCardHeader>(plate.BottomBorder, out var bottom))
+                rows.Add(new Row((uint)bottom.BottomImage, bottom.Name.ToString(), "Bottom border", collection.PlateHeader(plate.BottomBorder), PreviewId: (uint)bottom.BottomImage));
+
+            foreach (var decoration in plate.Decorations.Where(d => d != 0))
+            {
+                if (!excel.TryGetRow<CharaCardDecoration>(decoration, out var row))
+                    continue;
+
+                var kind = row.Component switch
+                {
+                    1 => "Backing",
+                    2 => "Pattern overlay",
+                    3 => "Portrait frame",
+                    4 => "Plate frame",
+                    5 => "Accent",
+                    _ => "Decoration",
+                };
+
+                rows.Add(new Row((uint)row.Image, row.Name.ToString(), kind, collection.PlateDecoration(decoration), PreviewId: (uint)row.Image));
+            }
+
+            if (rows.Count > 0)
+                groups.Add(new Group("Plate", rows));
+        }
+
+        // --- gear
+        if (capture is { Gear.Count: > 0 })
+        {
+            var rows = new List<Row>();
+            foreach (var piece in capture.Gear.OrderBy(g => SlotOrder(g.Slot)))
+            {
+                if (!excel.TryGetRow<Item>(piece.ItemId, out var item))
+                    continue;
+
+                var kind = item.ItemUICategory.IsValid ? item.ItemUICategory.Value.Name.ToString() : "Gear";
+                var dyes = new List<(uint, string)>();
+                foreach (var stain in new[] { piece.Stain0, piece.Stain1 })
+                {
+                    if (stain != 0 && excel.TryGetRow<Stain>(stain, out var stainRow))
+                        dyes.Add((stainRow.Color, stainRow.Name.ToString()));
+                }
+
+                var level = item.LevelItem.RowId;
+                var extra = level > 1 ? $"Item level {level}" : null;
+                rows.Add(new Row(item.Icon, item.Name.ToString(), kind, collection.Item(piece.ItemId), dyes, Extra: extra));
+            }
+
+            if (rows.Count > 0)
+                groups.Add(new Group("Gear", rows));
+        }
+
+        return groups;
+    }
+
+    // head to feet, then accessories, then weapons
+    private static int SlotOrder(byte slot) => slot switch
+    {
+        2 => 0, 3 => 1, 4 => 2, 6 => 3, 7 => 4,
+        8 => 5, 9 => 6, 10 => 7, 11 => 8, 12 => 9,
+        0 => 10, 1 => 11,
+        _ => 20 + slot,
+    };
+}

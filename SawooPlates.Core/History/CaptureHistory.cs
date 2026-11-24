@@ -55,6 +55,9 @@ public sealed class CaptureHistory
                         Source = capture.Source,
                         Job = string.IsNullOrEmpty(capture.Job) ? existing.Job : capture.Job,
                         Title = string.IsNullOrEmpty(capture.Title) ? existing.Title : capture.Title,
+                        JobId = capture.JobId != 0 ? capture.JobId : existing.JobId,
+                        Plate = capture.Plate ?? existing.Plate,
+                        Gear = capture.Gear.Count > 0 ? capture.Gear : existing.Gear,
                     };
                     _entries.RemoveAt(index);
                     _entries.Insert(0, updated);
@@ -64,6 +67,20 @@ public sealed class CaptureHistory
 
             _entries.Insert(0, capture);
             return (AddResult.Added, capture, Trim(maxSize));
+        }
+    }
+
+    /// <summary>Sets the gear of an entry (read a moment after the capture, once the portrait has loaded).</summary>
+    public bool SetGear(Guid id, List<GearPiece> gear)
+    {
+        lock (_lock)
+        {
+            var entry = _entries.FirstOrDefault(e => e.Id == id);
+            if (entry == null || gear.Count == 0)
+                return false;
+
+            entry.Gear = gear;
+            return true;
         }
     }
 

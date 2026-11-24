@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0.0]
+
+### UI
+- Reworked main window: cleaner lists with icons, a clear action bar, and empty screens that say what to do
+- Each portrait lists its background, frame, accent, pose and expression with a check or cross for whether you have it
+- Hover an item to see a larger preview, details and how to unlock it
+- Camera and lighting numbers moved into a collapsed section
+- Settings grouped into sections
+- About tab lists the commands
+
+### Presets
+- Edit a preset's name and tags from the Presets tab, and add new tags there
+- Presets show which parts you haven't unlocked yet
+
 ## [0.6.1.0]
 
 ### Fixes

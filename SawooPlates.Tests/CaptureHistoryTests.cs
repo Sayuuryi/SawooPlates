@@ -105,4 +105,33 @@ public class CaptureHistoryTests
         Assert.Equal("A@Adamantoise – WHM", (Capture("A", 1) with { Job = "WHM" }).DefaultPresetName);
         Assert.Equal("A@Adamantoise", Capture("A", 1).DefaultPresetName);
     }
+
+    [Fact]
+    public void DuplicateKeepsNewPlateAndGear()
+    {
+        var history = new CaptureHistory();
+        history.Add(Capture("A", 1), true, 10);
+
+        var plate = new PlateDesignData { BasePlate = 3, TopBorder = 1, BottomBorder = 2, Decorations = [5, 6, 0, 0, 0] };
+        var gear = new List<GearPiece> { new() { Slot = 2, ItemId = 1234, Stain0 = 7 } };
+        var (_, entry, _) = history.Add(Capture("A", 1) with { Plate = plate, Gear = gear, JobId = 24 }, true, 10);
+
+        Assert.Equal(plate, entry.Plate);
+        Assert.Single(entry.Gear);
+        Assert.Equal(24, entry.JobId);
+    }
+
+    [Fact]
+    public void SetGearAndJsonRoundTripOfPlateAndGear()
+    {
+        var history = new CaptureHistory();
+        var entry = history.Add(Capture("A", 1) with { Plate = new PlateDesignData { BasePlate = 9, Decorations = [1, 2, 3, 4, 5], PortraitOnRight = true } }, true, 10).Entry;
+
+        Assert.True(history.SetGear(entry.Id, [new GearPiece { Slot = 3, ItemId = 42, Stain0 = 1, Stain1 = 2 }]));
+
+        var loaded = Assert.Single(CaptureHistory.FromJson(history.ToJson()).Entries);
+        Assert.Equal(42u, Assert.Single(loaded.Gear).ItemId);
+        Assert.True(loaded.Plate!.PortraitOnRight);
+        Assert.Equal(new ushort[] { 1, 2, 3, 4, 5 }, loaded.Plate.Decorations);
+    }
 }

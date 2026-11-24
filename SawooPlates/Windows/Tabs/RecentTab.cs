@@ -3,23 +3,38 @@ using SawooPlates.Capture;
 namespace SawooPlates.Windows.Tabs;
 
 public sealed class RecentTab(
-    TextService textService,
+    ITextureProvider textures,
     CaptureService captureService,
     CaptureThumbnailService thumbnails,
     PortraitActions actions,
-    PresetDetailPanel detailPanel)
+    PresetDetailPanel portraitPanel,
+    PlateItems plateItems)
 {
     private enum SortMode { Newest, Oldest, Name }
 
+    private static readonly string[] SortLabels = ["Newest first", "Oldest first", "By name"];
+
     private string _search = string.Empty;
-    private int _sourceFilter = -1; // -1 = all
-    private string _jobFilter = string.Empty;
+    private CaptureSource? _sourceFilter;
+    private byte _jobFilter;
     private SortMode _sort = SortMode.Newest;
     private Guid? _selectedId;
+    private bool _scrollToSelected;
 
     private string _saveName = string.Empty;
     private bool _openSavePopup;
     private bool _confirmClear;
+    private bool _confirmDelete;
+
+    /// <summary>Selects an entry, e.g. when opened from the plate button.</summary>
+    public void Select(Guid id)
+    {
+        _selectedId = id;
+        _search = string.Empty;
+        _sourceFilter = null;
+        _jobFilter = 0;
+        _scrollToSelected = true;
+    }
 
     public void Draw()
     {
@@ -27,104 +42,178 @@ public sealed class RecentTab(
 
         if (entries.Count == 0)
         {
-            ImGui.TextWrapped(textService.Translate("SawooPlates.Recent.Empty"));
+            Ui.EmptyState(FontAwesomeIcon.IdCard, "Nothing here yet",
+                "Open someone's Adventurer Plate and their portrait shows up here, with everything that's on it.");
             return;
         }
-
-        DrawFilters(entries);
 
         var filtered = Filter(entries).ToList();
         var selected = filtered.FirstOrDefault(e => e.Id == _selectedId) ?? filtered.FirstOrDefault();
         _selectedId = selected?.Id;
 
-        var listWidth = 260 * ImStyle.Scale;
-
-        using (var list = ImRaii.Child("##RecentList", new Vector2(listWidth, -1), true))
+        using (var left = ImRaii.Child("##RecentLeft", new Vector2(270 * Ui.Scale, -1), false))
         {
-            if (list)
-            {
-                foreach (var entry in filtered)
-                {
-                    using var id = ImRaii.PushId(entry.Id.ToString());
-                    var label = string.IsNullOrEmpty(entry.Job) ? entry.Name : $"{entry.Name}  ({entry.Job})";
-                    if (ImGui.Selectable(label, entry.Id == _selectedId))
-                        _selectedId = entry.Id;
-
-                    if (ImGui.IsItemHovered())
-                        ImGui.SetTooltip($"{entry.Name}@{entry.WorldName}\n{SourceName(entry.Source)} · {entry.Time.ToLocalTime():g}");
-                }
-            }
+            if (left)
+                DrawList(entries, filtered);
         }
 
-        ImGui.SameLine();
+        ImGui.SameLine(0, 12 * Ui.Scale);
 
-        using var detail = ImRaii.Child("##RecentDetail", new Vector2(-1, -1));
-        if (!detail || selected == null)
+        using var right = ImRaii.Child("##RecentRight", new Vector2(-1, -1), false);
+        if (!right.Success)
             return;
+
+        if (selected == null)
+        {
+            Ui.EmptyState(FontAwesomeIcon.Search, "No matches", "Nothing matches the search or filters.");
+            return;
+        }
 
         DrawDetail(selected);
     }
 
-    private void DrawFilters(IReadOnlyList<CapturedPortrait> entries)
-    {
-        ImGui.SetNextItemWidth(200 * ImStyle.Scale);
-        ImGui.InputTextWithHint("##Search", textService.Translate("SawooPlates.Recent.SearchHint"), ref _search, 100);
+    // ---------------------------------------------------------------- list
 
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(150 * ImStyle.Scale);
-        var sourceLabel = _sourceFilter < 0 ? textService.Translate("SawooPlates.Recent.AllSources") : SourceName((CaptureSource)_sourceFilter);
-        using (var combo = ImRaii.Combo("##Source", sourceLabel))
+    private void DrawList(IReadOnlyList<CapturedPortrait> all, List<CapturedPortrait> filtered)
+    {
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputTextWithHint("##Search", "Search name, world or job", ref _search, 100);
+
+        var half = (ImGui.GetContentRegionAvail().X - ImGui.GetStyle().ItemSpacing.X) / 2f;
+
+        ImGui.SetNextItemWidth(half);
+        using (var combo = ImRaii.Combo("##Source", _sourceFilter is { } s ? Ui.SourceName(s) : "All sources"))
         {
             if (combo)
             {
-                if (ImGui.Selectable(textService.Translate("SawooPlates.Recent.AllSources"), _sourceFilter < 0))
-                    _sourceFilter = -1;
+                if (ImGui.Selectable("All sources", _sourceFilter == null))
+                    _sourceFilter = null;
 
                 foreach (var source in Enum.GetValues<CaptureSource>())
                 {
-                    if (ImGui.Selectable(SourceName(source), _sourceFilter == (int)source))
-                        _sourceFilter = (int)source;
+                    if (ImGui.Selectable(Ui.SourceName(source), _sourceFilter == source))
+                        _sourceFilter = source;
                 }
             }
         }
 
         ImGui.SameLine();
-        ImGui.SetNextItemWidth(90 * ImStyle.Scale);
-        var jobLabel = string.IsNullOrEmpty(_jobFilter) ? textService.Translate("SawooPlates.Recent.AllJobs") : _jobFilter;
+        ImGui.SetNextItemWidth(-1);
+        var jobs = all.Where(e => e.JobId != 0).GroupBy(e => e.JobId).Select(g => (Id: g.Key, Name: g.First().Job)).OrderBy(j => j.Name).ToList();
+        var jobLabel = _jobFilter == 0 ? "All jobs" : jobs.FirstOrDefault(j => j.Id == _jobFilter).Name ?? "All jobs";
         using (var combo = ImRaii.Combo("##Job", jobLabel))
         {
             if (combo)
             {
-                if (ImGui.Selectable(textService.Translate("SawooPlates.Recent.AllJobs"), string.IsNullOrEmpty(_jobFilter)))
-                    _jobFilter = string.Empty;
+                if (ImGui.Selectable("All jobs", _jobFilter == 0))
+                    _jobFilter = 0;
 
-                foreach (var job in entries.Select(e => e.Job).Where(j => !string.IsNullOrEmpty(j)).Distinct().Order())
+                foreach (var job in jobs)
                 {
-                    if (ImGui.Selectable(job, _jobFilter == job))
-                        _jobFilter = job;
+                    if (ImGui.Selectable($"{job.Name}##{job.Id}", _jobFilter == job.Id))
+                        _jobFilter = job.Id;
                 }
             }
         }
 
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(110 * ImStyle.Scale);
-        using (var combo = ImRaii.Combo("##Sort", textService.Translate($"SawooPlates.Recent.Sort.{_sort}")))
+        var footer = ImGui.GetFrameHeightWithSpacing() + ImGui.GetStyle().ItemSpacing.Y;
+        using (var list = ImRaii.Child("##List", new Vector2(-1, -footer), true))
         {
-            if (combo)
+            if (list)
             {
-                foreach (var mode in Enum.GetValues<SortMode>())
-                {
-                    if (ImGui.Selectable(textService.Translate($"SawooPlates.Recent.Sort.{mode}"), _sort == mode))
-                        _sort = mode;
-                }
+                foreach (var entry in filtered)
+                    DrawListRow(entry);
             }
         }
 
+        ImGui.SetNextItemWidth(130 * Ui.Scale);
+        var sort = (int)_sort;
+        if (ImGui.Combo("##Sort", ref sort, SortLabels, SortLabels.Length))
+            _sort = (SortMode)sort;
+
         ImGui.SameLine();
-        if (ImGuiUtils.IconButton("ClearHistory", FontAwesomeIcon.Trash, textService.Translate("SawooPlates.Recent.ClearAll.Tooltip")))
+        ImGui.TextColored(Ui.Dim, $"{filtered.Count} of {all.Count}");
+
+        ImGui.SameLine(ImGui.GetContentRegionAvail().X + ImGui.GetCursorPosX() - ImGui.GetFrameHeight());
+        if (Ui.IconButton("ClearAll", FontAwesomeIcon.Trash, "Clear Recent"))
             _confirmClear = true;
 
         DrawClearConfirm();
+    }
+
+    private void DrawListRow(CapturedPortrait entry)
+    {
+        using var id = ImRaii.PushId(entry.Id.ToString());
+
+        var height = 40 * Ui.Scale;
+        var start = ImGui.GetCursorPos();
+        var isSelected = entry.Id == _selectedId;
+
+        if (ImGui.Selectable("##Row", isSelected, ImGuiSelectableFlags.None, new Vector2(0, height)))
+            _selectedId = entry.Id;
+
+        if (ImGui.IsItemHovered())
+            DrawRowTooltip(entry);
+
+        if (isSelected && _scrollToSelected)
+        {
+            ImGui.SetScrollHereY();
+            _scrollToSelected = false;
+        }
+
+        var end = ImGui.GetCursorPos();
+        var icon = 32 * Ui.Scale;
+
+        ImGui.SetCursorPos(start + new Vector2(2 * Ui.Scale, (height - icon) / 2f));
+        Ui.JobIcon(textures, entry.JobId, icon);
+
+        var textX = start.X + icon + 10 * Ui.Scale;
+        var lineHeight = ImGui.GetTextLineHeight();
+        ImGui.SetCursorPos(new Vector2(textX, start.Y + height / 2f - lineHeight));
+        ImGui.TextUnformatted(entry.Name);
+
+        ImGui.SetCursorPos(new Vector2(textX, start.Y + height / 2f));
+        var sub = string.Join(" · ", new[] { entry.Job, entry.WorldName, Ui.TimeAgo(entry.Time) }.Where(x => !string.IsNullOrEmpty(x)));
+        ImGui.TextColored(Ui.Dim, sub);
+
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+        {
+            var iconText = Ui.SourceIcon(entry.Source).ToIconString();
+            var w = ImGui.CalcTextSize(iconText).X;
+            ImGui.SetCursorPos(new Vector2(ImGui.GetWindowContentRegionMax().X - w - 4 * Ui.Scale, start.Y + (height - lineHeight) / 2f));
+            ImGui.TextColored(Ui.Dim, iconText);
+        }
+
+        ImGui.SetCursorPos(end);
+    }
+
+    private void DrawRowTooltip(CapturedPortrait entry)
+    {
+        using var tooltip = ImRaii.Tooltip();
+
+        var size = new Vector2(96, 160) * Ui.Scale;
+        if (entry.HasImage && thumbnails.TryGetThumbnail(entry.Id, (int)size.X, (int)size.Y, out _, out var wrap, out _) && wrap != null)
+        {
+            ImGui.Image(wrap.Handle, size);
+            ImGui.SameLine(0, 10 * Ui.Scale);
+        }
+
+        using (ImRaii.Group())
+        {
+            ImGui.TextColored(Ui.Accent, entry.Name);
+            if (!string.IsNullOrEmpty(entry.Title))
+                ImGui.TextUnformatted(entry.Title);
+            ImGui.TextColored(Ui.Dim, string.Join(" · ", new[] { entry.Job, entry.WorldName }.Where(x => !string.IsNullOrEmpty(x))));
+            ImGui.Spacing();
+            ImGui.TextColored(Ui.Dim, $"{Ui.SourceName(entry.Source)}, {entry.Time.ToLocalTime():g}");
+
+            var missing = plateItems.CountMissing(entry, entry.Preset, entry.FrameKnown, entry.DecorationKnown);
+            ImGui.Spacing();
+            if (missing > 0)
+                ImGui.TextColored(Ui.Bad, missing == 1 ? "You're missing 1 thing" : $"You're missing {missing} things");
+            else
+                ImGui.TextColored(Ui.Good, "You have everything");
+        }
     }
 
     private IEnumerable<CapturedPortrait> Filter(IEnumerable<CapturedPortrait> entries)
@@ -141,11 +230,11 @@ public sealed class RecentTab(
                 e.Title.Contains(s, StringComparison.OrdinalIgnoreCase));
         }
 
-        if (_sourceFilter >= 0)
-            query = query.Where(e => (int)e.Source == _sourceFilter);
+        if (_sourceFilter is { } source)
+            query = query.Where(e => e.Source == source);
 
-        if (!string.IsNullOrEmpty(_jobFilter))
-            query = query.Where(e => e.Job == _jobFilter);
+        if (_jobFilter != 0)
+            query = query.Where(e => e.JobId == _jobFilter);
 
         return _sort switch
         {
@@ -155,66 +244,100 @@ public sealed class RecentTab(
         };
     }
 
+    // ---------------------------------------------------------------- detail
+
     private void DrawDetail(CapturedPortrait capture)
     {
-        ImGui.TextColored(Color.Gold, $"{capture.Name}@{capture.WorldName}");
-        var sub = string.Join(" · ", new[] { capture.Job, capture.Title, SourceName(capture.Source), capture.Time.ToLocalTime().ToString("g") }.Where(s => !string.IsNullOrEmpty(s)));
-        ImGui.TextDisabled(sub);
+        // header
+        var icon = 40 * Ui.Scale;
+        Ui.JobIcon(textures, capture.JobId, icon);
+        ImGui.SameLine(0, 10 * Ui.Scale);
 
-        if (!capture.FrameKnown || !capture.DecorationKnown)
+        using (ImRaii.Group())
         {
-            using (Color.WarningForeground.Push(ImGuiCol.Text))
-                ImGui.TextWrapped(textService.Translate("SawooPlates.Detail.PartialCapture"));
+            ImGui.TextColored(Ui.Accent, capture.Name);
+            var line = string.Join(" · ", new[] { capture.Title, capture.WorldName, capture.Job }.Where(x => !string.IsNullOrEmpty(x)));
+            ImGui.TextUnformatted(line);
+            Ui.Icon(Ui.SourceIcon(capture.Source), Ui.Dim);
+            ImGui.SameLine();
+            ImGui.TextColored(Ui.Dim, $"{Ui.SourceName(capture.Source)} · {Ui.TimeAgo(capture.Time)}");
         }
 
         ImGui.Spacing();
-        DrawButtons(capture);
+        DrawActions(capture);
+
+        // summary
+        var missing = plateItems.CountMissing(capture, capture.Preset, capture.FrameKnown, capture.DecorationKnown);
+        ImGui.Spacing();
+        if (missing > 0)
+        {
+            Ui.Icon(FontAwesomeIcon.ExclamationCircle, Ui.Bad);
+            ImGui.SameLine();
+            ImGui.TextUnformatted(missing == 1 ? "You're missing 1 thing on this plate." : $"You're missing {missing} things on this plate.");
+        }
+        else
+        {
+            Ui.Icon(FontAwesomeIcon.CheckCircle, Ui.Good);
+            ImGui.SameLine();
+            ImGui.TextUnformatted("You have everything on this plate that can be checked.");
+        }
+
+        if (!capture.FrameKnown || !capture.DecorationKnown)
+            ImGui.TextColored(Ui.Dim, "This screen doesn't show frames, accents or the plate design.");
+
+        ImGui.Spacing();
+        ImGui.Separator();
         ImGui.Spacing();
 
-        var height = Math.Min(320 * ImStyle.Scale, ImStyle.ContentRegionAvail.Y);
-        detailPanel.DrawPortrait(capture.Preset, thumbnails, capture.Id, height, capture.FrameKnown, capture.DecorationKnown);
-        ImGui.SameLine();
+        // portrait on the left, items on the right
+        var height = Math.Min(380 * Ui.Scale, ImGui.GetContentRegionAvail().Y);
+        using (ImRaii.Group())
+            portraitPanel.DrawPortrait(capture.Preset, thumbnails, capture.Id, height, capture.FrameKnown, capture.DecorationKnown);
 
-        using var values = ImRaii.Child("##Values", new Vector2(-1, height));
-        if (values)
-            detailPanel.DrawValues(capture.Preset, capture.FrameKnown, capture.DecorationKnown);
+        ImGui.SameLine(0, 14 * Ui.Scale);
+
+        using var items = ImRaii.Child("##Items", new Vector2(-1, -1), false);
+        if (!items.Success)
+            return;
+
+        var gearPending = capture.Gear.Count == 0 && DateTimeOffset.UtcNow - capture.Time < TimeSpan.FromSeconds(5);
+        plateItems.Draw(capture, capture.Preset, capture.FrameKnown, capture.DecorationKnown, gearPending);
+
+        ImGui.Spacing();
+        if (ImGui.CollapsingHeader("Camera and lighting"))
+            portraitPanel.DrawValues(capture.Preset);
     }
 
-    private void DrawButtons(CapturedPortrait capture)
+    private void DrawActions(CapturedPortrait capture)
     {
-        if (ImGui.Button(textService.Translate("SawooPlates.Detail.SaveToPresets")))
+        if (Ui.Button(FontAwesomeIcon.Magic, "Apply to my portrait", !actions.CanApply,
+                actions.CanApply ? "Opens Advanced Import with this portrait, so you can pick what to take." : "Open your Portrait Editor first."))
+        {
+            actions.Apply(capture);
+        }
+
+        ImGui.SameLine();
+        if (Ui.Button(FontAwesomeIcon.Save, "Save as preset"))
         {
             _saveName = capture.DefaultPresetName;
             _openSavePopup = true;
         }
 
         ImGui.SameLine();
-        using (ImRaii.Disabled(!actions.CanApply))
-        {
-            if (ImGui.Button(textService.Translate("SawooPlates.Detail.Apply")))
-                actions.Apply(capture);
-        }
-
-        if (!actions.CanApply && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-            ImGui.SetTooltip(textService.Translate("SawooPlates.Detail.Apply.Disabled"));
-
-        ImGui.SameLine();
-        if (ImGui.Button(textService.Translate("SawooPlates.Detail.CopyCode")))
+        if (Ui.Button(FontAwesomeIcon.Copy, "Copy code", tooltip: "Copy the preset code to share or paste in the Portrait Editor."))
             actions.CopyCode(capture.Preset, capture.Name);
 
-        ImGui.SameLine();
-        if (ImGuiUtils.IconButton("Delete", FontAwesomeIcon.Trash, textService.Translate("SawooPlates.Detail.Delete")))
-        {
-            captureService.Remove(capture.Id);
-            _selectedId = null;
-        }
+        ImGui.SameLine(ImGui.GetContentRegionAvail().X + ImGui.GetCursorPosX() - ImGui.GetFrameHeight());
+        if (Ui.IconButton("Delete", FontAwesomeIcon.Trash, "Remove from Recent"))
+            _confirmDelete = true;
 
         DrawSavePopup(capture);
+        DrawDeleteConfirm(capture);
     }
 
     private void DrawSavePopup(CapturedPortrait capture)
     {
-        var title = textService.Translate("SawooPlates.Detail.SaveToPresets") + "##SaveCapture";
+        const string title = "Save as preset##SaveCapture";
 
         if (_openSavePopup)
         {
@@ -227,20 +350,20 @@ public sealed class RecentTab(
         if (!popup)
             return;
 
-        ImGui.Text(textService.Translate("EditorWindows.CreatePresetDialog.Name.Label"));
+        ImGui.TextUnformatted("Name");
         if (ImGui.IsWindowAppearing())
             ImGui.SetKeyboardFocusHere();
 
-        ImGui.SetNextItemWidth(300 * ImStyle.Scale);
+        ImGui.SetNextItemWidth(320 * Ui.Scale);
         ImGui.InputText("##Name", ref _saveName, PortraitEditor.Utils.Constants.PresetNameMaxLength);
-        ImGui.TextDisabled(textService.Translate("SawooPlates.Detail.SaveTagHint", PortraitActions.CapturedTagName));
+        ImGui.TextColored(Ui.Dim, $"It gets the tag \"{PortraitActions.CapturedTagName}\".");
 
         ImGui.Spacing();
 
         var canSave = !string.IsNullOrWhiteSpace(_saveName);
         using (ImRaii.Disabled(!canSave))
         {
-            if (ImGui.Button(textService.Translate("ConfirmationButtonWindow.Save"), new Vector2(120 * ImStyle.Scale, 0))
+            if (ImGui.Button("Save", new Vector2(120 * Ui.Scale, 0))
                 || (canSave && (ImGui.IsKeyPressed(ImGuiKey.Enter) || ImGui.IsKeyPressed(ImGuiKey.KeypadEnter))))
             {
                 actions.SaveAsPreset(capture, _saveName);
@@ -249,13 +372,43 @@ public sealed class RecentTab(
         }
 
         ImGui.SameLine();
-        if (ImGui.Button(textService.Translate("ConfirmationButtonWindow.Cancel"), new Vector2(120 * ImStyle.Scale, 0)))
+        if (ImGui.Button("Cancel", new Vector2(120 * Ui.Scale, 0)))
+            ImGui.CloseCurrentPopup();
+    }
+
+    private void DrawDeleteConfirm(CapturedPortrait capture)
+    {
+        const string title = "Remove from Recent?##DeleteCapture";
+
+        if (_confirmDelete)
+        {
+            ImGui.OpenPopup(title);
+            _confirmDelete = false;
+        }
+
+        ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f));
+        using var popup = ImRaii.PopupModal(title, ImGuiWindowFlags.AlwaysAutoResize);
+        if (!popup)
+            return;
+
+        ImGui.TextUnformatted($"Remove {capture.Name}'s portrait from Recent?");
+        ImGui.Spacing();
+
+        if (ImGui.Button("Remove", new Vector2(120 * Ui.Scale, 0)))
+        {
+            captureService.Remove(capture.Id);
+            _selectedId = null;
+            ImGui.CloseCurrentPopup();
+        }
+
+        ImGui.SameLine();
+        if (ImGui.Button("Cancel", new Vector2(120 * Ui.Scale, 0)))
             ImGui.CloseCurrentPopup();
     }
 
     private void DrawClearConfirm()
     {
-        var title = textService.Translate("SawooPlates.Recent.ClearAll.Tooltip") + "##ClearHistory";
+        const string title = "Clear Recent?##ClearRecent";
 
         if (_confirmClear)
         {
@@ -268,20 +421,17 @@ public sealed class RecentTab(
         if (!popup)
             return;
 
-        ImGui.Text(textService.Translate("SawooPlates.Recent.ClearAll.Prompt"));
+        ImGui.TextUnformatted("Remove every portrait from Recent? Saved presets stay.");
         ImGui.Spacing();
 
-        if (ImGui.Button(textService.Translate("ConfirmationButtonWindow.Delete"), new Vector2(120 * ImStyle.Scale, 0)))
+        if (ImGui.Button("Clear", new Vector2(120 * Ui.Scale, 0)))
         {
             captureService.ClearAll();
             ImGui.CloseCurrentPopup();
         }
 
         ImGui.SameLine();
-        if (ImGui.Button(textService.Translate("ConfirmationButtonWindow.Cancel"), new Vector2(120 * ImStyle.Scale, 0)))
+        if (ImGui.Button("Cancel", new Vector2(120 * Ui.Scale, 0)))
             ImGui.CloseCurrentPopup();
     }
-
-    private string SourceName(CaptureSource source)
-        => textService.Translate($"SawooPlates.Source.{source}");
 }

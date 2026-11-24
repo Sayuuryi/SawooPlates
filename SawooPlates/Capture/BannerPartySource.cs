@@ -29,6 +29,7 @@ public sealed unsafe class BannerPartySource : IDisposable
     private readonly IPlayerState _playerState;
     private readonly ExcelService _excelService;
     private readonly CaptureService _captureService;
+    private readonly GearReader _gearReader;
 
     public BannerPartySource(
         IPluginLog log,
@@ -36,7 +37,8 @@ public sealed unsafe class BannerPartySource : IDisposable
         IAgentLifecycle agentLifecycle,
         IPlayerState playerState,
         ExcelService excelService,
-        CaptureService captureService)
+        CaptureService captureService,
+        GearReader gearReader)
     {
         _log = log;
         _framework = framework;
@@ -44,6 +46,7 @@ public sealed unsafe class BannerPartySource : IDisposable
         _playerState = playerState;
         _excelService = excelService;
         _captureService = captureService;
+        _gearReader = gearReader;
 
         _agentLifecycle.RegisterListener(AgentEvent.PostShow, (DAgentId)(uint)GameAgentId.BannerParty, OnPartyShown);
         _agentLifecycle.RegisterListener(AgentEvent.PostShow, (DAgentId)(uint)GameAgentId.BannerMIP, OnMvpShown);
@@ -168,6 +171,8 @@ public sealed unsafe class BannerPartySource : IDisposable
                 Job = character.Job.ToString(),
                 Title = character.Title.ToString(),
                 Preset = preset,
+                JobId = FindJobId(character.Job.ToString()),
+                Gear = _gearReader.Read(charaView),
                 FrameKnown = false,
                 DecorationKnown = false,
             };
@@ -179,6 +184,26 @@ public sealed unsafe class BannerPartySource : IDisposable
             _log.Error(ex, "Error while reading the party portraits");
             return null;
         }
+    }
+
+    /// <summary>The party screen only has the job's display name; look up its id for the icon.</summary>
+    private byte FindJobId(string job)
+    {
+        if (string.IsNullOrWhiteSpace(job))
+            return 0;
+
+        foreach (var row in _excelService.GetSheet<ClassJob>())
+        {
+            if (row.RowId != 0 && (
+                string.Equals(row.Name.ToString(), job, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(row.NameEnglish.ToString(), job, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(row.Abbreviation.ToString(), job, StringComparison.OrdinalIgnoreCase)))
+            {
+                return (byte)row.RowId;
+            }
+        }
+
+        return 0;
     }
 
     private bool IsLocalPlayer(string name, ushort worldId)

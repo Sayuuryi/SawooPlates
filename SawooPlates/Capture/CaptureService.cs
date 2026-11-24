@@ -96,6 +96,13 @@ public sealed class CaptureService : IDisposable
         return entry;
     }
 
+    /// <summary>Fills in the gear of an entry once the portrait model has loaded.</summary>
+    public void SetGear(Guid id, List<GearPiece> gear)
+    {
+        if (History.SetGear(id, gear))
+            ScheduleSave();
+    }
+
     public void Remove(Guid id)
     {
         if (History.Remove(id))

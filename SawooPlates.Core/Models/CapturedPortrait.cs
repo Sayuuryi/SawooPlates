@@ -22,6 +22,7 @@ public record CapturedPortrait
     public ushort WorldId { get; init; }
     public string WorldName { get; init; } = string.Empty;
     public string Job { get; init; } = string.Empty;
+    public byte JobId { get; init; }
     public string Title { get; init; } = string.Empty;
 
     public PortraitPresetData Preset { get; init; } = new();
@@ -31,6 +32,12 @@ public record CapturedPortrait
 
     /// <summary>False when the source does not store the accent/decoration (party/MVP portraits).</summary>
     public bool DecorationKnown { get; init; } = true;
+
+    /// <summary>The Adventurer Plate design around the portrait. Null for party/MVP portraits.</summary>
+    public PlateDesignData? Plate { get; set; }
+
+    /// <summary>Gear and dyes the character wears in the portrait. Empty until read.</summary>
+    public List<GearPiece> Gear { get; set; } = [];
 
     public bool HasImage { get; set; }
 
@@ -42,4 +49,23 @@ public record CapturedPortrait
     public string DefaultPresetName => string.IsNullOrEmpty(Job)
         ? $"{Name}@{WorldName}"
         : $"{Name}@{WorldName} – {Job}";
+}
+
+/// <summary>Adventurer Plate design: CharaCardBase, CharaCardHeader and CharaCardDecoration row ids.</summary>
+public record PlateDesignData
+{
+    public ushort BasePlate { get; init; }
+    public byte TopBorder { get; init; }
+    public byte BottomBorder { get; init; }
+    public ushort[] Decorations { get; init; } = [];
+    public bool PortraitOnRight { get; init; }
+}
+
+/// <summary>One equipped item as shown in a portrait.</summary>
+public record GearPiece
+{
+    public byte Slot { get; init; }
+    public uint ItemId { get; init; }
+    public byte Stain0 { get; init; }
+    public byte Stain1 { get; init; }
 }

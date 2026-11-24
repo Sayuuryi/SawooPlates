@@ -90,6 +90,8 @@ public sealed class Plugin : IDalamudPlugin
             // Capture
             .AddSingleton<CaptureThumbnailService>()
             .AddSingleton<CaptureService>()
+            .AddSingleton<GearReader>()
+            .AddSingleton<CollectionService>()
             .AddSingleton<CharaCardSource>()
             .AddSingleton<BannerPartySource>()
             .AddSingleton<PartyCaptureBar>()

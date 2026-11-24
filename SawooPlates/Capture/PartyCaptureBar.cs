@@ -71,25 +71,29 @@ public sealed unsafe class PartyCaptureBar : Window
 
     public override void Draw()
     {
-        ImGuiUtils.Icon(FontAwesomeIcon.Copy);
-        ImGui.SameLine();
-        ImGui.Text(_textService.Translate("SawooPlates.PartyBar.Label"));
+        ImGui.TextColored(Windows.Ui.Dim, "Copy portrait:");
 
         foreach (var member in _members)
         {
             ImGui.SameLine();
             using var id = ImRaii.PushId(member.Index);
 
-            var label = string.IsNullOrEmpty(member.Job) ? FirstName(member.Name) : $"{FirstName(member.Name)} ({member.Job})";
-            if (ImGui.Button(label))
+            if (ImGui.Button(FirstName(member.Name)))
                 Copy(member);
 
             if (ImGui.IsItemHovered())
-                ImGui.SetTooltip(_textService.Translate("SawooPlates.PartyBar.Tooltip", member.Name));
+            {
+                using var tip = ImRaii.Tooltip();
+                ImGui.TextColored(Windows.Ui.Accent, member.Name);
+                if (!string.IsNullOrEmpty(member.Job))
+                    ImGui.TextColored(Windows.Ui.Dim, member.Job);
+                ImGui.Spacing();
+                ImGui.TextUnformatted("Click to keep this portrait in Recent and copy its preset code.");
+            }
         }
 
-        ImGui.SameLine();
-        if (ImGuiUtils.IconButton("SaveAll", FontAwesomeIcon.Download, _textService.Translate("SawooPlates.PartyBar.SaveAll")))
+        ImGui.SameLine(0, 12 * ImGuiHelpers.GlobalScale);
+        if (Windows.Ui.IconButton("SaveAll", FontAwesomeIcon.Download, "Keep everyone's portrait in Recent"))
         {
             var source = _shown;
             _framework.RunOnFrameworkThread(() =>

@@ -21,6 +21,7 @@ public sealed unsafe class CharaCardSource : IDisposable
     private readonly IPlayerState _playerState;
     private readonly ExcelService _excelService;
     private readonly CaptureService _captureService;
+    private readonly GearReader _gearReader;
 
     public CharaCardSource(
         IPluginLog log,
@@ -28,7 +29,8 @@ public sealed unsafe class CharaCardSource : IDisposable
         IAddonLifecycle addonLifecycle,
         IPlayerState playerState,
         ExcelService excelService,
-        CaptureService captureService)
+        CaptureService captureService,
+        GearReader gearReader)
     {
         _log = log;
         _framework = framework;
@@ -36,6 +38,7 @@ public sealed unsafe class CharaCardSource : IDisposable
         _playerState = playerState;
         _excelService = excelService;
         _captureService = captureService;
+        _gearReader = gearReader;
 
         _addonLifecycle.RegisterListener(AddonEvent.PostSetup, AddonName, OnPlateShown);
         _addonLifecycle.RegisterListener(AddonEvent.PostRefresh, AddonName, OnPlateShown);
@@ -81,7 +84,13 @@ public sealed unsafe class CharaCardSource : IDisposable
                 return null;
 
             var contentId = capture.ContentId;
-            return _captureService.Add(capture, () => GrabImage(contentId), manual);
+            var entry = _captureService.Add(capture, () => GrabImage(contentId), manual);
+
+            // the model (and so the gear list) can finish loading after the plate opens
+            if (entry.Gear.Count == 0)
+                ScheduleGearRead(entry.Id, contentId);
+
+            return entry;
         }
         catch (Exception ex)
         {
@@ -137,9 +146,36 @@ public sealed unsafe class CharaCardSource : IDisposable
             Job = job,
             Title = title,
             Preset = preset,
+            JobId = data->ClassJobId,
+            Plate = new PlateDesignData
+            {
+                BasePlate = data->PlateDesign.BasePlate,
+                TopBorder = data->PlateDesign.TopBorder,
+                BottomBorder = data->PlateDesign.BottomBorder,
+                Decorations = data->PlateDesign.Decorations[..Math.Min((int)data->PlateDesign.NumDecorations, data->PlateDesign.Decorations.Length)].ToArray(),
+                PortraitOnRight = data->InvertPortraitPlacement,
+            },
+            Gear = _gearReader.Read(&data->CharaView),
         };
 
         return true;
+    }
+
+    private void ScheduleGearRead(Guid id, ulong contentId)
+    {
+        foreach (var delay in new[] { TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3) })
+        {
+            _ = _framework.RunOnTick(() =>
+            {
+                var agent = AgentCharaCard.Instance();
+                if (agent == null || agent->Data == null || agent->Data->ContentId != contentId)
+                    return;
+
+                var gear = _gearReader.Read(&agent->Data->CharaView);
+                if (gear.Count > 0)
+                    _captureService.SetGear(id, gear);
+            }, delay);
+        }
     }
 
     /// <summary>Called on the draw thread. Returns null while the texture is not loaded yet.</summary>

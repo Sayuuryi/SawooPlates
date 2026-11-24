@@ -44,25 +44,42 @@ public sealed class SettingsTab(
         var settings = pluginConfig.Capture;
         var changed = false;
 
-        ImGuiUtils.DrawSection(textService.Translate("SawooPlates.Settings.Capture.Title"));
-
-        changed |= DrawOwnBool("AutoCaptureAdventurerPlate", ref settings.AutoCaptureAdventurerPlate);
-        changed |= DrawOwnBool("AutoCapturePartyPortraits", ref settings.AutoCapturePartyPortraits);
-        changed |= DrawOwnBool("AutoCaptureMvpVote", ref settings.AutoCaptureMvpVote);
-        changed |= DrawOwnBool("ShowPlateButton", ref settings.ShowPlateButton);
-        changed |= DrawOwnBool("ShowPartyButtons", ref settings.ShowPartyButtons);
-        changed |= DrawOwnBool("ContextMenuEntry", ref settings.ContextMenuEntry);
-        changed |= DrawOwnBool("SkipOwnCharacter", ref settings.SkipOwnCharacter);
-        changed |= DrawOwnBool("DedupePerPlayer", ref settings.DedupePerPlayer);
-        changed |= DrawOwnBool("NotifyOnCapture", ref settings.NotifyOnCapture);
-        changed |= DrawOwnBool("NotifyOnCopy", ref settings.NotifyOnCopy);
-
-        ImGui.SetNextItemWidth(150 * ImStyle.Scale);
-        if (ImGui.InputInt(textService.Translate("SawooPlates.Settings.MaxHistorySize.Label"), ref settings.MaxHistorySize, 10, 50))
+        if (Group("Capture", FontAwesomeIcon.IdCard))
         {
-            settings.MaxHistorySize = Math.Clamp(settings.MaxHistorySize, 10, 5000);
-            captureService.TrimHistory();
-            changed = true;
+            changed |= DrawOwnBool("AutoCaptureAdventurerPlate", ref settings.AutoCaptureAdventurerPlate);
+            changed |= DrawOwnBool("AutoCapturePartyPortraits", ref settings.AutoCapturePartyPortraits);
+            changed |= DrawOwnBool("AutoCaptureMvpVote", ref settings.AutoCaptureMvpVote);
+            changed |= DrawOwnBool("SkipOwnCharacter", ref settings.SkipOwnCharacter);
+        }
+
+        if (Group("Buttons and menus", FontAwesomeIcon.MousePointer))
+        {
+            changed |= DrawOwnBool("ShowPlateButton", ref settings.ShowPlateButton);
+            changed |= DrawOwnBool("ShowPartyButtons", ref settings.ShowPartyButtons);
+            changed |= DrawOwnBool("ContextMenuEntry", ref settings.ContextMenuEntry);
+        }
+
+        if (Group("Recent", FontAwesomeIcon.History))
+        {
+            changed |= DrawOwnBool("DedupePerPlayer", ref settings.DedupePerPlayer);
+
+            ImGui.Spacing();
+            ImGui.TextUnformatted(textService.Translate("SawooPlates.Settings.MaxHistorySize.Label"));
+            ImGui.SetNextItemWidth(220 * ImStyle.Scale);
+            if (ImGui.SliderInt("##MaxHistory", ref settings.MaxHistorySize, 10, 1000))
+            {
+                settings.MaxHistorySize = Math.Clamp(settings.MaxHistorySize, 10, 1000);
+                captureService.TrimHistory();
+                changed = true;
+            }
+
+            ImGui.Spacing();
+        }
+
+        if (Group("Notifications", FontAwesomeIcon.Bell))
+        {
+            changed |= DrawOwnBool("NotifyOnCapture", ref settings.NotifyOnCapture);
+            changed |= DrawOwnBool("NotifyOnCopy", ref settings.NotifyOnCopy);
         }
 
         return changed;
@@ -73,26 +90,55 @@ public sealed class SettingsTab(
         var config = pluginConfig.PortraitEditor;
         var changed = false;
 
-        ImGuiUtils.DrawSection(textService.Translate("SawooPlates.Settings.PortraitEditor.Title"));
-
-        var enableTools = pluginConfig.EnablePortraitEditorTools;
-        if (DrawOwnBool("EnablePortraitEditorTools", ref enableTools))
+        if (Group("Portrait Editor", FontAwesomeIcon.UserEdit))
         {
-            pluginConfig.EnablePortraitEditorTools = enableTools;
-            changed = true;
-            serviceProvider.GetRequiredService<PortraitEditorModule>().RefreshMenuBar();
+            var enableTools = pluginConfig.EnablePortraitEditorTools;
+            if (DrawOwnBool("EnablePortraitEditorTools", ref enableTools))
+            {
+                pluginConfig.EnablePortraitEditorTools = enableTools;
+                changed = true;
+                serviceProvider.GetRequiredService<PortraitEditorModule>().RefreshMenuBar();
+            }
+
+            changed |= DrawBool("EmbedPresetStringInThumbnails", ref config.EmbedPresetStringInThumbnails);
         }
 
-        changed |= DrawBool("EmbedPresetStringInThumbnails", ref config.EmbedPresetStringInThumbnails);
-        changed |= DrawBool("NotifyGearChecksumMismatch", ref config.NotifyGearChecksumMismatch, drawAfterDescription: () =>
+        if (Group("Gear and portrait", FontAwesomeIcon.Tshirt))
         {
-            using var disabled = ImRaii.Disabled(!config.NotifyGearChecksumMismatch);
-            changed |= DrawBool("IgnoreDoHDoL", ref config.IgnoreDoHDoL);
-        });
-        changed |= DrawBool("ReequipGearsetOnUpdate", ref config.ReequipGearsetOnUpdate, drawAfterLabel: DrawNetworkWarning);
-        changed |= DrawBool("AutoUpdatePotraitOnGearUpdate", ref config.AutoUpdatePotraitOnGearUpdate, drawAfterLabel: DrawNetworkWarning);
+            changed |= DrawBool("NotifyGearChecksumMismatch", ref config.NotifyGearChecksumMismatch, drawAfterDescription: () =>
+            {
+                using var disabled = ImRaii.Disabled(!config.NotifyGearChecksumMismatch);
+                using var indent = ImRaii.PushIndent();
+                changed |= DrawBool("IgnoreDoHDoL", ref config.IgnoreDoHDoL);
+            });
+            changed |= DrawBool("ReequipGearsetOnUpdate", ref config.ReequipGearsetOnUpdate, drawAfterLabel: DrawNetworkWarning);
+            changed |= DrawBool("AutoUpdatePotraitOnGearUpdate", ref config.AutoUpdatePotraitOnGearUpdate, drawAfterLabel: DrawNetworkWarning);
+        }
 
         return changed;
+    }
+
+    /// <summary>A collapsible group, open by default.</summary>
+    private static bool Group(string title, FontAwesomeIcon icon)
+    {
+        ImGui.Spacing();
+        var open = ImGui.CollapsingHeader($"{title}##Group{title}", ImGuiTreeNodeFlags.DefaultOpen);
+
+        // icon drawn over the header, right-aligned
+        var min = ImGui.GetItemRectMin();
+        var max = ImGui.GetItemRectMax();
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+        {
+            var text = icon.ToIconString();
+            var size = ImGui.CalcTextSize(text);
+            ImGui.GetWindowDrawList().AddText(new Vector2(max.X - size.X - 8 * ImStyle.Scale, min.Y + (max.Y - min.Y - size.Y) / 2f),
+                ImGui.GetColorU32(ImGuiCol.TextDisabled), text);
+        }
+
+        if (open)
+            ImGui.Spacing();
+
+        return open;
     }
 
     private bool DrawOwnBool(string fieldName, ref bool value)
