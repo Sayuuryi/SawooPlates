@@ -105,9 +105,9 @@ public sealed class Plugin : IDalamudPlugin
             .AddSingleton<PlateContextMenu>()
             // UI
             .AddSingleton<PresetDetailPanel>()
+            .AddSingleton<PlateItems>()
             .AddSingleton<SawooPlates.Windows.Tabs.RecentTab>()
             .AddSingleton<SawooPlates.Windows.Tabs.PresetsTab>()
-            .AddSingleton<SawooPlates.Windows.Tabs.SettingsTab>()
             .AddSingleton<SawooPlates.Windows.Tabs.SettingsTab>()
             .AddSingleton<MainWindow>()
             .BuildServiceProvider();
