@@ -2,9 +2,9 @@ namespace SawooPlates.Config;
 
 public class CaptureSettings
 {
-    public bool AutoCaptureAdventurerPlate = false;
-    public bool AutoCapturePartyPortraits = false;
-    public bool AutoCaptureMvpVote = false;
+    public bool AutoCaptureAdventurerPlate = true;
+    public bool AutoCapturePartyPortraits = true;
+    public bool AutoCaptureMvpVote = true;
 
     public bool SkipOwnCharacter = true;
     public bool DedupePerPlayer = true;

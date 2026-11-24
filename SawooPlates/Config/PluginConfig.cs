@@ -15,7 +15,7 @@ namespace SawooPlates.Config;
 /// </summary>
 public class PluginConfig : IPluginConfiguration
 {
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -85,6 +85,19 @@ public class PluginConfig : IPluginConfiguration
                 }
 
                 version = 3;
+            }
+
+            // 4: back to keeping plates in Recent automatically (it is only a history; it can still be turned off)
+            if (version < 4)
+            {
+                if (json["Capture"] is JsonObject capture)
+                {
+                    capture["AutoCaptureAdventurerPlate"] = true;
+                    capture["AutoCapturePartyPortraits"] = true;
+                    capture["AutoCaptureMvpVote"] = true;
+                }
+
+                version = 4;
             }
 
             json[nameof(Version)] = Math.Max(version, CurrentVersion);

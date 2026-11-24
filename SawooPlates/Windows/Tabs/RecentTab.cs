@@ -44,7 +44,7 @@ public sealed class RecentTab(
         if (entries.Count == 0)
         {
             Ui.EmptyState(FontAwesomeIcon.IdCard, "Nothing here yet",
-                "Open someone's Adventurer Plate and click \"Save plate\" above it. Their portrait and plate design show up here.");
+                "Open someone's Adventurer Plate and it shows up here, with its portrait and plate design.");
             return;
         }
 

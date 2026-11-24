@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.9.2.0]
+
+### Recent
+- Plates you open are kept in Recent again by default; you can turn this off in Settings
+
 ## [0.9.1.0]
 
 ### UI
