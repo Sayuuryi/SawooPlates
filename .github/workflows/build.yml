@@ -1,16 +1,15 @@
 name: Build
 
-# Releases (Sawoo Plates, built here):
-#   tag vX.Y.Z.W-testing  -> testing version (only for people with "Receive plugin testing versions" on)
+# Releases:
+#   tag vX.Y.Z.W-testing  -> testing version (prerelease; for "Receive plugin testing versions")
 #   tag vX.Y.Z.W          -> stable version for everyone
-# Releases of prebuilt plugins in plugins/<InternalName>/:
-#   tag <InternalName>-vX.Y.Z.W[-testing]
 # Tag the same commit with the stable tag once the testing version is good.
+# The plugin list in Sayuuryi/SawooPlugins picks up new releases from here.
 
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*', '*-v*' ]
+    tags: [ 'v*' ]
     paths-ignore: [ 'repo.json' ]
   pull_request:
   workflow_dispatch:
@@ -25,7 +24,6 @@ env:
 
 jobs:
   build:
-    if: ${{ !startsWith(github.ref, 'refs/tags/') || startsWith(github.ref_name, 'v') }}
     runs-on: windows-2022
     steps:
       - name: Checkout
@@ -127,59 +125,3 @@ jobs:
           git commit -m "Update repo.json for $label"
           git push origin main
 
-  release-prebuilt:
-    if: ${{ startsWith(github.ref, 'refs/tags/') && !startsWith(github.ref_name, 'v') }}
-    runs-on: windows-2022
-    steps:
-      - name: Checkout main
-        uses: actions/checkout@v5
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Read tag
-        id: tag
-        shell: pwsh
-        run: |
-          if ('${{ github.ref_name }}' -notmatch '^(?<name>.+)-v(?<version>\d+(\.\d+){3})(?<testing>-testing)?$') { throw "Tag must look like Name-v1.2.3.4 or Name-v1.2.3.4-testing" }
-          $name = $Matches['name']; $version = $Matches['version']; $testing = [bool]$Matches['testing']
-          $dir = "plugins/$name"
-          if (-not (Test-Path "$dir/$name.json")) { throw "No plugin folder $dir with $name.json" }
-          $manifest = Get-Content "$dir/$name.json" -Raw | ConvertFrom-Json
-          if ($manifest.AssemblyVersion -ne $version) { throw "Tag version $version does not match $name.json ($($manifest.AssemblyVersion))" }
-          "name=$name" >> $env:GITHUB_OUTPUT
-          "version=$version" >> $env:GITHUB_OUTPUT
-          "testing=$($testing.ToString().ToLower())" >> $env:GITHUB_OUTPUT
-          "dir=$dir" >> $env:GITHUB_OUTPUT
-
-      - name: Package
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force dist | Out-Null
-          $files = Get-ChildItem '${{ steps.tag.outputs.dir }}' -File | Where-Object { $_.Name -ne 'icon.png' }
-          Compress-Archive -Path $files.FullName -DestinationPath dist/latest.zip -Force
-          Copy-Item '${{ steps.tag.outputs.dir }}/${{ steps.tag.outputs.name }}.json' dist/
-
-      - name: Create release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $manifest = Get-Content 'dist/${{ steps.tag.outputs.name }}.json' -Raw | ConvertFrom-Json
-          $title = "$($manifest.Name) ${{ steps.tag.outputs.version }}"
-          $flags = @()
-          if ('${{ steps.tag.outputs.testing }}' -eq 'true') { $title += " (testing)"; $flags += '--prerelease' }
-          gh release create '${{ github.ref_name }}' dist/latest.zip 'dist/${{ steps.tag.outputs.name }}.json' --title $title --notes "$($manifest.Name) ${{ steps.tag.outputs.version }}" @flags
-
-      - name: Update repo.json
-        shell: pwsh
-        run: |
-          $testing = '${{ steps.tag.outputs.testing }}' -eq 'true'
-          $url = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/latest.zip"
-          ./.github/scripts/Update-RepoJson.ps1 -ManifestPath 'dist/${{ steps.tag.outputs.name }}.json' -DownloadUrl $url -Version '${{ steps.tag.outputs.version }}' -Testing $testing
-
-          git config user.name  "$env:GIT_NAME"
-          git config user.email "$env:GIT_EMAIL"
-          git add repo.json
-          git commit -m "Update repo.json for ${{ steps.tag.outputs.name }} ${{ github.ref_name }}"
-          git push origin main

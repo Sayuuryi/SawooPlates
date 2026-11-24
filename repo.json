@@ -1,36 +1,6 @@
 [
   {
     "Author": "Sayuuryi",
-    "Name": "Chibi Dancing Mad",
-    "InternalName": "ChibiDancingMad",
-    "AssemblyVersion": "1.0.0.0",
-    "Description": "Scales Dancing Mad Exdeath and Chaos down with optional Penumbra redraw support.",
-    "ApplicableVersion": "any",
-    "RepoUrl": "https://github.com/Sayuuryi/SawooPlugins",
-    "Tags": [
-      "dancingmad",
-      "exdeath",
-      "chaos",
-      "penumbra",
-      "ultimate"
-    ],
-    "DalamudApiLevel": 15,
-    "LoadRequiredState": 0,
-    "LoadSync": false,
-    "CanUnloadAsync": false,
-    "LoadPriority": 0,
-    "Punchline": "Makes Dancing Mad Exdeath and Chaos smaller.",
-    "AcceptsFeedback": true,
-    "IconUrl": "https://raw.githubusercontent.com/Sayuuryi/SawooPlugins/main/plugins/ChibiDancingMad/icon.png",
-    "DownloadLinkInstall": "https://github.com/Sayuuryi/SawooPlugins/releases/download/ChibiDancingMad-v1.0.0.0/latest.zip",
-    "DownloadLinkUpdate": "https://github.com/Sayuuryi/SawooPlugins/releases/download/ChibiDancingMad-v1.0.0.0/latest.zip",
-    "TestingAssemblyVersion": "1.0.0.0",
-    "DownloadLinkTesting": "https://github.com/Sayuuryi/SawooPlugins/releases/download/ChibiDancingMad-v1.0.0.0/latest.zip",
-    "TestingDalamudApiLevel": 15,
-    "LastUpdate": 1795556714
-  },
-  {
-    "Author": "Sayuuryi",
     "Name": "Sawoo Plates",
     "InternalName": "SawooPlates",
     "AssemblyVersion": "0.8.0.0",
