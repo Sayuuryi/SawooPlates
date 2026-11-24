@@ -16,6 +16,8 @@ public sealed unsafe class PartyCaptureBar : Window
     private readonly PortraitActions _actions;
 
     private CaptureSource _shown;
+    private Vector2 _size = new(400, 34);
+    private IDisposable? _style;
     private List<BannerPartySource.Member> _members = [];
 
     public PartyCaptureBar(
@@ -37,7 +39,6 @@ public sealed unsafe class PartyCaptureBar : Window
         IsOpen = true;
         RespectCloseHotkey = false;
         DisableWindowSounds = true;
-        BgAlpha = 0.85f;
     }
 
     public override bool DrawConditions()
@@ -53,8 +54,11 @@ public sealed unsafe class PartyCaptureBar : Window
 
             _shown = source;
 
-            var height = ImGui.GetFrameHeight() + ImGui.GetStyle().WindowPadding.Y * 2;
-            Position = ImGui.GetMainViewport().Pos + new Vector2(addon->X, addon->Y - height - 2);
+            var topLeft = new Vector2(addon->X, addon->Y - _size.Y - 2);
+            if (OverlayStyle.IsCovered(addon, topLeft, topLeft + _size))
+                return false;
+
+            Position = ImGui.GetMainViewport().Pos + topLeft;
             PositionCondition = ImGuiCond.Always;
             return true;
         }
@@ -64,13 +68,23 @@ public sealed unsafe class PartyCaptureBar : Window
 
     public override void PreDraw()
     {
+        _style = OverlayStyle.PushPanel();
+
         // member list is read on the framework thread; draw uses the last copy
         var source = _shown;
         _framework.RunOnFrameworkThread(() => _members = _source.GetMembers(source));
     }
 
+    public override void PostDraw()
+    {
+        _style?.Dispose();
+        _style = null;
+    }
+
     public override void Draw()
     {
+        _size = ImGui.GetWindowSize();
+
         ImGui.TextColored(Windows.Ui.Dim, "Copy portrait:");
 
         foreach (var member in _members)

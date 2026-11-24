@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.1.0]
+
+### UI
+- Buttons shown over game windows have a dark background, so they're easy to read on any plate
+- They hide while another game window is in front of them
+
 ## [0.9.0.0]
 
 ### Fixes

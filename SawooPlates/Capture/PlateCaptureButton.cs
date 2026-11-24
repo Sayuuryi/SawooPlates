@@ -23,8 +23,7 @@ public sealed unsafe class PlateCaptureButton : Window
         IServiceProvider services)
         : base("##SawooPlatesPlateButton",
             ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoSavedSettings |
-            ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoNav |
-            ImGuiWindowFlags.NoBackground)
+            ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoNav)
     {
         _framework = framework;
         _textService = textService;
@@ -38,6 +37,10 @@ public sealed unsafe class PlateCaptureButton : Window
         DisableWindowSounds = true;
     }
 
+    // size of the panel last frame, used to place it and to test whether a game window covers it
+    private Vector2 _size = new(250, 34);
+    private IDisposable? _style;
+
     public override bool DrawConditions()
     {
         if (!_captureService.Settings.ShowPlateButton)
@@ -47,16 +50,30 @@ public sealed unsafe class PlateCaptureButton : Window
         if (addon == null || !addon->IsVisible)
             return false;
 
-        // place it right above the top-right corner of the plate
-        var height = ImGui.GetFrameHeight() + ImGui.GetStyle().WindowPadding.Y * 2;
-        var width = addon->GetScaledWidth(true);
-        Position = ImGui.GetMainViewport().Pos + new Vector2(addon->X + width - 260 * ImGuiHelpers.GlobalScale, addon->Y - height);
+        // right above the top-right corner of the plate
+        var topLeft = new Vector2(addon->X + addon->GetScaledWidth(true) - _size.X, addon->Y - _size.Y - 2);
+
+        // hide while another game window is in front of the plate here
+        if (OverlayStyle.IsCovered(addon, topLeft, topLeft + _size))
+            return false;
+
+        Position = ImGui.GetMainViewport().Pos + topLeft;
         PositionCondition = ImGuiCond.Always;
         return true;
     }
 
+    public override void PreDraw() => _style = OverlayStyle.PushPanel();
+
+    public override void PostDraw()
+    {
+        _style?.Dispose();
+        _style = null;
+    }
+
     public override void Draw()
     {
+        _size = ImGui.GetWindowSize();
+
         if (Ui.Button(FontAwesomeIcon.Save, "Save plate", tooltip: "Keep this portrait and plate design in Recent and see what's on it."))
             ShowDetails();
 
