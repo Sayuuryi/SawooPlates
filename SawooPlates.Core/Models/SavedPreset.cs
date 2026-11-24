@@ -10,6 +10,9 @@ public record SavedPreset
     public PortraitPresetData? Preset;
     public HashSet<Guid> Tags;
 
+    /// <summary>Plate design saved together with the portrait, when it came from an Adventurer Plate.</summary>
+    public PlateDesignData? Plate;
+
     [JsonConstructor]
     public SavedPreset(Guid Id, string Name, PortraitPresetData? Preset, HashSet<Guid> Tags)
     {

@@ -1,5 +1,10 @@
 name: Build
 
+# Releases:
+#   tag vX.Y.Z.W-testing  -> testing version (only for people with "Receive plugin testing versions" on)
+#   tag vX.Y.Z.W          -> stable version for everyone
+# Tag the same commit with the stable tag once the testing version is good.
+
 on:
   push:
     branches: [ main ]
@@ -39,6 +44,9 @@ jobs:
       - name: Build
         run: dotnet build SawooPlates/SawooPlates.csproj --configuration Release
 
+      - name: Check services
+        run: dotnet run --project SawooPlates.ServiceCheck --configuration Release
+
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
@@ -69,10 +77,13 @@ jobs:
         run: |
           $manifest = Get-Content dist/SawooPlates.json -Raw | ConvertFrom-Json
           $tag = '${{ github.ref_name }}'.TrimStart('v')
-          if ($manifest.AssemblyVersion -ne $tag) {
+          $testing = $tag.EndsWith('-testing')
+          $version = $tag -replace '-testing$', ''
+          if ($manifest.AssemblyVersion -ne $version) {
             throw "Tag $tag does not match AssemblyVersion $($manifest.AssemblyVersion) in the csproj"
           }
-          "version=$tag" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "testing=$($testing.ToString().ToLower())" >> $env:GITHUB_OUTPUT
 
       - name: Release notes from CHANGELOG
         shell: pwsh
@@ -93,24 +104,62 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create '${{ github.ref_name }}' dist/latest.zip dist/SawooPlates.json `
-            --title "Sawoo Plates ${{ steps.version.outputs.version }}" `
-            --notes-file notes.md
+          $title = "Sawoo Plates ${{ steps.version.outputs.version }}"
+          $flags = @()
+          if ('${{ steps.version.outputs.testing }}' -eq 'true') { $title += " (testing)"; $flags += '--prerelease' }
+          gh release create '${{ github.ref_name }}' dist/latest.zip dist/SawooPlates.json --title $title --notes-file notes.md @flags
 
       - name: Update repo.json
         shell: pwsh
         run: |
           $manifest = Get-Content dist/SawooPlates.json -Raw | ConvertFrom-Json -AsHashtable
+          $testing = '${{ steps.version.outputs.testing }}' -eq 'true'
+          $version = '${{ steps.version.outputs.version }}'
           $url = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/latest.zip"
-          $manifest['DownloadLinkInstall'] = $url
-          $manifest['DownloadLinkUpdate'] = $url
-          $manifest['DownloadLinkTesting'] = $url
-          $manifest['LastUpdate'] = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-          $manifest['Changelog'] = (Get-Content notes.md -Raw).Trim()
-          ConvertTo-Json @($manifest) -Depth 5 | Set-Content -Encoding utf8 repo.json
+
+          # keep entries of other plugins; replace or create ours
+          $entries = @()
+          if (Test-Path repo.json) { $entries = @(Get-Content repo.json -Raw | ConvertFrom-Json -AsHashtable) }
+          $entry = $entries | Where-Object { $_['InternalName'] -eq $manifest['InternalName'] } | Select-Object -First 1
+          $others = @($entries | Where-Object { $_['InternalName'] -ne $manifest['InternalName'] })
+
+          if ($testing) {
+            if ($null -eq $entry) {
+              # first release ever is a testing one: list it, but only testing users can install it
+              $entry = $manifest
+              $entry['IsTestingExclusive'] = $true
+              $entry['DownloadLinkInstall'] = $url
+              $entry['DownloadLinkUpdate'] = $url
+            }
+            $entry['TestingAssemblyVersion'] = $version
+            $entry['TestingDalamudApiLevel'] = $manifest['DalamudApiLevel']
+            $entry['DownloadLinkTesting'] = $url
+          }
+          else {
+            $testingVersion = if ($entry) { $entry['TestingAssemblyVersion'] } else { $null }
+            $testingUrl = if ($entry) { $entry['DownloadLinkTesting'] } else { $null }
+            $entry = $manifest
+            $entry['DownloadLinkInstall'] = $url
+            $entry['DownloadLinkUpdate'] = $url
+            # testing users get the stable build unless a newer testing build exists
+            if ($testingVersion -and ([version]$testingVersion -gt [version]$version)) {
+              $entry['TestingAssemblyVersion'] = $testingVersion
+              $entry['DownloadLinkTesting'] = $testingUrl
+            } else {
+              $entry['TestingAssemblyVersion'] = $version
+              $entry['DownloadLinkTesting'] = $url
+            }
+            $entry['TestingDalamudApiLevel'] = $manifest['DalamudApiLevel']
+            $entry.Remove('IsTestingExclusive')
+            $entry['Changelog'] = (Get-Content notes.md -Raw).Trim()
+          }
+          $entry['LastUpdate'] = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+
+          ConvertTo-Json @($others + $entry) -Depth 5 | Set-Content -Encoding utf8 repo.json
 
           git config user.name  "$env:GIT_NAME"
           git config user.email "$env:GIT_EMAIL"
           git add repo.json
-          git commit -m "Update repo.json for ${{ steps.version.outputs.version }}"
+          $label = if ($testing) { "$version testing" } else { $version }
+          git commit -m "Update repo.json for $label"
           git push origin main

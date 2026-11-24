@@ -15,7 +15,7 @@ namespace SawooPlates.Config;
 /// </summary>
 public class PluginConfig : IPluginConfiguration
 {
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -72,6 +72,19 @@ public class PluginConfig : IPluginConfiguration
 
                 log.Information("Migrated config to version 2");
                 version = 2;
+            }
+
+            // 3: portraits are only kept when the user clicks a button, not when a plate opens
+            if (version < 3)
+            {
+                if (json["Capture"] is JsonObject capture)
+                {
+                    capture["AutoCaptureAdventurerPlate"] = false;
+                    capture["AutoCapturePartyPortraits"] = false;
+                    capture["AutoCaptureMvpVote"] = false;
+                }
+
+                version = 3;
             }
 
             json[nameof(Version)] = Math.Max(version, CurrentVersion);

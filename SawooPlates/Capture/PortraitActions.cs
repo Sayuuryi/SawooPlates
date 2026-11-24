@@ -51,7 +51,7 @@ public sealed class PortraitActions(
             config.PresetTags.Add(tag);
         }
 
-        var preset = new SavedPreset(Guid.CreateVersion7(), name.Trim(), capture.Preset with { }, [tag.Id]);
+        var preset = new SavedPreset(Guid.CreateVersion7(), name.Trim(), capture.Preset with { }, [tag.Id]) { Plate = capture.Plate };
 
         var source = captureService.GetImagePath(capture.Id);
         if (File.Exists(source))

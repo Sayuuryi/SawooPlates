@@ -10,7 +10,9 @@ public sealed class PresetsTab(
     ThumbnailService thumbnails,
     PortraitActions actions,
     PresetDetailPanel portraitPanel,
-    PlateItems plateItems)
+    PlateItems plateItems,
+    PlateDesignApplier designApplier,
+    CaptureService captureService)
 {
     private string _search = string.Empty;
     private Guid? _tagFilter;
@@ -184,6 +186,22 @@ public sealed class PresetsTab(
             actions.Apply(preset.Preset!);
         }
 
+        var plate = preset.Plate;
+        if (plate != null)
+        {
+            ImGui.SameLine();
+            if (Ui.Button(FontAwesomeIcon.IdCard, "Apply plate design", !designApplier.CanApply,
+                    designApplier.CanApply
+                        ? "Puts this plate design in your design editor. Parts you haven't unlocked are skipped. Press Save in the game window to keep it."
+                        : "Open your Adventurer Plate, then Edit > Design, to use this."))
+            {
+                var skipped = designApplier.Apply(plate);
+                captureService.Notify(skipped > 0
+                    ? $"Plate design applied. {skipped} part(s) you haven't unlocked were skipped. Press Save to keep it."
+                    : "Plate design applied. Press Save in the design window to keep it.");
+            }
+        }
+
         ImGui.SameLine();
         if (Ui.Button(FontAwesomeIcon.Copy, "Copy code"))
             actions.CopyCode(preset.Preset!);
@@ -228,7 +246,7 @@ public sealed class PresetsTab(
         if (!items.Success)
             return;
 
-        plateItems.Draw(null, preset.Preset!);
+        plateItems.Draw(new CapturedPortrait { Preset = preset.Preset!, Plate = preset.Plate }, preset.Preset!, showGearNote: false);
 
         ImGui.Spacing();
         if (ImGui.CollapsingHeader("Camera and lighting"))

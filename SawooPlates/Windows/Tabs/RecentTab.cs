@@ -8,7 +8,8 @@ public sealed class RecentTab(
     CaptureThumbnailService thumbnails,
     PortraitActions actions,
     PresetDetailPanel portraitPanel,
-    PlateItems plateItems)
+    PlateItems plateItems,
+    PlateDesignApplier designApplier)
 {
     private enum SortMode { Newest, Oldest, Name }
 
@@ -43,7 +44,7 @@ public sealed class RecentTab(
         if (entries.Count == 0)
         {
             Ui.EmptyState(FontAwesomeIcon.IdCard, "Nothing here yet",
-                "Open someone's Adventurer Plate and their portrait shows up here, with everything that's on it.");
+                "Open someone's Adventurer Plate and click \"Save plate\" above it. Their portrait and plate design show up here.");
             return;
         }
 
@@ -314,6 +315,22 @@ public sealed class RecentTab(
                 actions.CanApply ? "Opens Advanced Import with this portrait, so you can pick what to take." : "Open your Portrait Editor first."))
         {
             actions.Apply(capture);
+        }
+
+        var plate = capture.Plate;
+        if (plate != null)
+        {
+            ImGui.SameLine();
+            if (Ui.Button(FontAwesomeIcon.IdCard, "Apply plate design", !designApplier.CanApply,
+                    designApplier.CanApply
+                        ? "Puts this plate design in your design editor. Parts you haven't unlocked are skipped. Press Save in the game window to keep it."
+                        : "Open your Adventurer Plate, then Edit > Design, to use this."))
+            {
+                var skipped = designApplier.Apply(plate);
+                captureService.Notify(skipped > 0
+                    ? $"Plate design applied. {skipped} part(s) you haven't unlocked were skipped. Press Save to keep it."
+                    : "Plate design applied. Press Save in the design window to keep it.");
+            }
         }
 
         ImGui.SameLine();

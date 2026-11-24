@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Text;
 using Dalamud.Game.Agent;
 using Dalamud.Game.Agent.AgentArgTypes;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
@@ -229,65 +228,5 @@ public sealed unsafe class BannerPartySource : IDisposable
             return null;
 
         return BgraImage.FromTexture2D((ID3D11Texture2D*)texture->D3D11Texture2D);
-    }
-
-    /// <summary>
-    /// Writes the node tree of the open window to the log (node ids, positions, sizes, textures).
-    /// Used to find where each portrait sits and whether frame/accent textures can be read from it.
-    /// </summary>
-    public string DumpAddon(CaptureSource source)
-    {
-        var addon = AddonUtil.GetAddon<AtkUnitBase>(GetAgentId(source));
-        if (addon == null)
-            return "Window not open.";
-
-        var sb = new StringBuilder();
-        sb.AppendLine($"{addon->NameString} at {addon->X},{addon->Y} scale {addon->Scale} size {addon->GetScaledWidth(true)}x{addon->GetScaledHeight(true)}");
-
-        for (var i = 0; i < addon->UldManager.NodeListCount; i++)
-            DumpNode(sb, addon->UldManager.NodeList[i], 1);
-
-        foreach (var member in GetMembers(source))
-            sb.AppendLine($"member {member.Index}: {member.Name} {member.Job} world {member.WorldId}");
-
-        var text = sb.ToString();
-        _log.Information("[Dump {source}]\n{text}", source.ToString(), text);
-        return text;
-    }
-
-    private static void DumpNode(StringBuilder sb, AtkResNode* node, int depth)
-    {
-        if (node == null)
-            return;
-
-        var line = $"{new string(' ', depth * 2)}#{node->NodeId} {node->Type} pos {node->X},{node->Y} size {node->Width}x{node->Height} visible {node->IsVisible()}";
-
-        if (node->Type == NodeType.Image)
-        {
-            var image = (AtkImageNode*)node;
-            if (image->PartsList != null && image->PartId < image->PartsList->PartCount)
-            {
-                var asset = image->PartsList->Parts[image->PartId].UldAsset;
-                if (asset != null && asset->AtkTexture.Resource != null)
-                {
-                    var resource = asset->AtkTexture.Resource;
-                    line += $" icon {resource->IconId}";
-                    if (resource->TexFileResourceHandle != null)
-                        line += $" tex {resource->TexFileResourceHandle->ResourceHandle.FileName}";
-                }
-            }
-        }
-
-        sb.AppendLine(line);
-
-        if ((int)node->Type >= 1000)
-        {
-            var component = ((AtkComponentNode*)node)->Component;
-            if (component != null)
-            {
-                for (var i = 0; i < component->UldManager.NodeListCount; i++)
-                    DumpNode(sb, component->UldManager.NodeList[i], depth + 1);
-            }
-        }
     }
 }

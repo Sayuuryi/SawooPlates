@@ -25,7 +25,7 @@ public sealed class PlateItems(
     public int CountMissing(CapturedPortrait? capture, PortraitPresetData preset, bool frameKnown, bool decorationKnown)
         => BuildGroups(capture, preset, frameKnown, decorationKnown).Sum(g => g.Missing);
 
-    public void Draw(CapturedPortrait? capture, PortraitPresetData preset, bool frameKnown = true, bool decorationKnown = true, bool gearPending = false)
+    public void Draw(CapturedPortrait? capture, PortraitPresetData preset, bool frameKnown = true, bool decorationKnown = true, bool gearPending = false, bool showGearNote = true)
     {
         var groups = BuildGroups(capture, preset, frameKnown, decorationKnown);
 
@@ -36,7 +36,7 @@ public sealed class PlateItems(
             DrawRows(group);
         }
 
-        if (capture != null && capture.Gear.Count == 0)
+        if (showGearNote && capture != null && capture.Gear.Count == 0)
         {
             Ui.Section("Gear");
             ImGui.TextColored(Ui.Dim, gearPending

@@ -57,12 +57,12 @@ public sealed unsafe class PlateCaptureButton : Window
 
     public override void Draw()
     {
-        if (Ui.Button(FontAwesomeIcon.Copy, "Copy portrait", tooltip: "Keep this portrait in Recent and copy its preset code."))
-            CopyPortrait();
+        if (Ui.Button(FontAwesomeIcon.Save, "Save plate", tooltip: "Keep this portrait and plate design in Recent and see what's on it."))
+            ShowDetails();
 
         ImGui.SameLine();
-        if (Ui.Button(FontAwesomeIcon.Search, "Details", tooltip: "See what's on this plate and what you're missing."))
-            ShowDetails();
+        if (Ui.Button(FontAwesomeIcon.Copy, "Copy code", tooltip: "Keep this plate in Recent and copy its portrait code."))
+            CopyPortrait();
     }
 
     private void ShowDetails()

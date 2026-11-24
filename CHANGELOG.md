@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.0.0]
+
+### Fixes
+- The plugin failed to load in 0.7.0.0 and 0.8.0.0
+
+### Presets
+- Presets can keep a plate design as well as the portrait
+- "Apply plate design" fills in your own plate's design editor; parts you haven't unlocked are skipped and you confirm with the game's Save button
+
+### Commands
+- `/splates` opens the window, `/splates config` opens the settings
+
 ## [0.8.0.0]
 
 ### Presets

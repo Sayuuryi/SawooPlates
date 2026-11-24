@@ -13,6 +13,63 @@ using SawooPlates.Windows;
 
 namespace SawooPlates;
 
+public static class PluginServices
+{
+    /// <summary>
+    /// Registers everything the plugin creates itself. Dalamud services are registered by the constructor.
+    /// Kept separate so the container can be checked outside the game.
+    /// </summary>
+    public static IServiceCollection AddPluginServices(this IServiceCollection services)
+        => services
+            // Common
+            .AddSingleton(sp => PluginConfig.Load(sp.GetRequiredService<IDalamudPluginInterface>(), sp.GetRequiredService<IPluginLog>()))
+            .AddSingleton<ExcelService>()
+            .AddSingleton<TextService>()
+            // Portrait editor
+            .AddSingleton<BannerService>()
+            .AddSingleton<ClipboardService>()
+            .AddSingleton<ThumbnailService>()
+            .AddSingleton<MenuBarState>()
+            .AddSingleton<AlignmentToolRenderer>()
+            .AddSingleton<CreatePresetDialog>()
+            .AddSingleton<CreateTagDialog>()
+            .AddSingleton<DeletePresetDialog>()
+            .AddSingleton<DeleteTagDialog>()
+            .AddSingleton<EditPresetDialog>()
+            .AddSingleton<RenameTagDialog>()
+            .AddSingleton<ResetButton>()
+            .AddSingleton<CopyButton>()
+            .AddSingleton<PasteButton>()
+            .AddSingleton<AdvancedImportButton>()
+            .AddSingleton<AdvancedEditButton>()
+            .AddSingleton<SaveAsPresetButton>()
+            .AddSingleton<PresetBrowserButton>()
+            .AddSingleton<AlignmentToolButton>()
+            .AddSingleton<MenuBar>()
+            .AddSingleton<PortraitEditorModule>()
+            // Capture
+            .AddSingleton<CaptureThumbnailService>()
+            .AddSingleton<CaptureService>()
+            .AddSingleton<GearReader>()
+            .AddSingleton<CollectionService>()
+            .AddSingleton<PlateDesignApplier>()
+            .AddSingleton<PresetImporter>()
+            .AddSingleton<ImportPromptWindow>()
+            .AddSingleton<CharaCardSource>()
+            .AddSingleton<BannerPartySource>()
+            .AddSingleton<PartyCaptureBar>()
+            .AddSingleton<PortraitActions>()
+            .AddSingleton<PlateCaptureButton>()
+            .AddSingleton<PlateContextMenu>()
+            // UI
+            .AddSingleton<PresetDetailPanel>()
+            .AddSingleton<PlateItems>()
+            .AddSingleton<SawooPlates.Windows.Tabs.RecentTab>()
+            .AddSingleton<SawooPlates.Windows.Tabs.PresetsTab>()
+            .AddSingleton<SawooPlates.Windows.Tabs.SettingsTab>()
+            .AddSingleton<MainWindow>();
+}
+
 public sealed class Plugin : IDalamudPlugin
 {
     private const string Command = "/sawooplates";
@@ -64,53 +121,8 @@ public sealed class Plugin : IDalamudPlugin
             .AddSingleton(playerState)
             .AddSingleton(contextMenu)
             .AddSingleton(_windowSystem)
-            // Common
-            .AddSingleton(sp => PluginConfig.Load(sp.GetRequiredService<IDalamudPluginInterface>(), sp.GetRequiredService<IPluginLog>()))
-            .AddSingleton<ExcelService>()
-            .AddSingleton<TextService>()
-            // Portrait editor
-            .AddSingleton<BannerService>()
-            .AddSingleton<ClipboardService>()
-            .AddSingleton<ThumbnailService>()
-            .AddSingleton<MenuBarState>()
-            .AddSingleton<AlignmentToolRenderer>()
-            .AddSingleton<CreatePresetDialog>()
-            .AddSingleton<CreateTagDialog>()
-            .AddSingleton<DeletePresetDialog>()
-            .AddSingleton<DeleteTagDialog>()
-            .AddSingleton<EditPresetDialog>()
-            .AddSingleton<RenameTagDialog>()
-            .AddSingleton<ResetButton>()
-            .AddSingleton<CopyButton>()
-            .AddSingleton<PasteButton>()
-            .AddSingleton<AdvancedImportButton>()
-            .AddSingleton<AdvancedEditButton>()
-            .AddSingleton<SaveAsPresetButton>()
-            .AddSingleton<PresetBrowserButton>()
-            .AddSingleton<AlignmentToolButton>()
-            .AddSingleton<MenuBar>()
-            .AddSingleton<PortraitEditorModule>()
-            // Capture
-            .AddSingleton<CaptureThumbnailService>()
-            .AddSingleton<CaptureService>()
-            .AddSingleton<GearReader>()
-            .AddSingleton<CollectionService>()
-            .AddSingleton<PresetImporter>()
-            .AddSingleton<ImportPromptWindow>()
-            .AddSingleton<CharaCardSource>()
-            .AddSingleton<BannerPartySource>()
-            .AddSingleton<PartyCaptureBar>()
-            .AddSingleton<PortraitActions>()
-            .AddSingleton<PlateCaptureButton>()
-            .AddSingleton<PlateContextMenu>()
-            // UI
-            .AddSingleton<PresetDetailPanel>()
-            .AddSingleton<PlateItems>()
-            .AddSingleton<SawooPlates.Windows.Tabs.RecentTab>()
-            .AddSingleton<SawooPlates.Windows.Tabs.PresetsTab>()
-            .AddSingleton<SawooPlates.Windows.Tabs.SettingsTab>()
-            .AddSingleton<MainWindow>()
-            .BuildServiceProvider();
+            .AddPluginServices()
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
 
         try
         {
@@ -125,7 +137,7 @@ public sealed class Plugin : IDalamudPlugin
             _windowSystem.AddWindow(_services.GetRequiredService<PartyCaptureBar>());
             _windowSystem.AddWindow(_services.GetRequiredService<ImportPromptWindow>());
 
-            _commandManager.AddHandler(Command, new CommandInfo(OnCommand) { HelpMessage = "Open the Sawoo Plates window. \"/splates dump party\" or \"dump mvp\" writes the open portrait window's layout to /xllog." });
+            _commandManager.AddHandler(Command, new CommandInfo(OnCommand) { HelpMessage = "Open Sawoo Plates. Add \"config\" to open the settings." });
             _commandManager.AddHandler(CommandAlias, new CommandInfo(OnCommand) { ShowInHelp = false });
 
             _pluginInterface.UiBuilder.Draw += _windowSystem.Draw;
@@ -176,20 +188,10 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OnCommand(string command, string args)
     {
-        var parts = args.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 2 && parts[0] == "dump" && parts[1] is "party" or "mvp")
-        {
-            var source = parts[1] == "mvp" ? CaptureSource.MvpVote : CaptureSource.PartyPortrait;
-            var framework = _services.GetRequiredService<IFramework>();
-            framework.RunOnFrameworkThread(() =>
-            {
-                _services.GetRequiredService<BannerPartySource>().DumpAddon(source);
-                _services.GetRequiredService<IChatGui>().Print("[Sawoo Plates] Window layout written to /xllog.");
-            });
-            return;
-        }
-
-        _mainWindow?.Toggle();
+        if (args.Trim().Equals("config", StringComparison.OrdinalIgnoreCase))
+            OpenSettings();
+        else
+            ToggleMain();
     }
 
     private void OpenSettings() => _mainWindow?.Open(MainWindow.Tab.Settings);

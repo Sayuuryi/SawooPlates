@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Checks that every plugin service can be created (run after building the plugin). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <PlatformTarget>x64</PlatformTarget>
+    <DalamudLibPath>$(AppData)\XIVLauncher\addon\Hooks\dev\</DalamudLibPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <Reference Include="SawooPlates"><HintPath>..\SawooPlates\bin\Release\SawooPlates.dll</HintPath></Reference>
+    <Reference Include="SawooPlates.Core"><HintPath>..\SawooPlates\bin\Release\SawooPlates.Core.dll</HintPath></Reference>
+    <Reference Include="Dalamud"><HintPath>$(DalamudLibPath)Dalamud.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>
