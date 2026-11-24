@@ -22,7 +22,7 @@ public sealed class MainWindow : Window
         _presetsTab = presetsTab;
         _settingsTab = settingsTab;
 
-        Size = new Vector2(900, 600);
+        Size = new Vector2(1080, 660);
         SizeCondition = ImGuiCond.FirstUseEver;
         SizeConstraints = new WindowSizeConstraints
         {

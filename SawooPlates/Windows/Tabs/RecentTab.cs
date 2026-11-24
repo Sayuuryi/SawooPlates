@@ -381,7 +381,7 @@ public sealed class RecentTab(
         ImGui.Spacing();
 
         // plate on the left, parts on the right (stacked when the window is narrow)
-        Ui.DetailColumns("Recent", () => DrawVisual(capture), () =>
+        Ui.DetailColumns("Recent", Ui.VisualWidth(capture.Plate != null), () => DrawVisual(capture), () =>
         {
             var gearPending = capture.Gear.Count == 0 && DateTimeOffset.UtcNow - capture.Time < TimeSpan.FromSeconds(5);
             plateItems.Draw(capture, capture.Preset, capture.FrameKnown, capture.DecorationKnown, gearPending);
@@ -393,11 +393,11 @@ public sealed class RecentTab(
     {
         if (capture.Plate is { } plateDesign)
         {
-            plateRenderer.DrawFitted(plateDesign, capture.Preset, thumbnails, capture.Id, capture.FrameKnown, capture.DecorationKnown);
+            plateRenderer.DrawFitted(plateDesign, capture.Preset, thumbnails, capture.Id, Ui.VisualWidth(true), capture.FrameKnown, capture.DecorationKnown);
         }
         else
         {
-            var height = Math.Clamp(ImGui.GetWindowHeight() * 0.6f, 160 * Ui.Scale, 380 * Ui.Scale);
+            var height = Ui.VisualWidth(false) / 0.6f; // portraits are 3:5
             ImGui.SetCursorPosX(ImGui.GetCursorPosX() + Math.Max(0, (ImGui.GetContentRegionAvail().X - height * 0.6f) / 2f));
             portraitPanel.DrawPortrait(capture.Preset, thumbnails, capture.Id, height, capture.FrameKnown, capture.DecorationKnown);
         }

@@ -14,20 +14,12 @@ public sealed class PlateRenderer(ITextureProvider textures, ExcelService excel)
 
     private readonly record struct Layer(uint IconId, float X, float Y, float W, float H, bool IsPortrait = false);
 
-    /// <summary>
-    /// Draws the plate as large as fits: the full width, but at most about half the visible height,
-    /// centred, so the parts below it keep their normal size whatever shape the window has.
-    /// </summary>
+    /// <summary>Draws the plate at <paramref name="width"/> (or narrower when there's less room), centred.</summary>
     public void DrawFitted(PlateDesignData plate, PortraitPresetData preset, ThumbnailService thumbnails, Guid imageId,
-        bool frameKnown = true, bool decorationKnown = true)
+        float width, bool frameKnown = true, bool decorationKnown = true)
     {
-        var (minX, minY, maxX, maxY) = Bounds(BuildLayers(plate));
-        var aspect = (maxX - minX) / (maxY - minY);
-
         var available = ImGui.GetContentRegionAvail().X;
-        var maxHeight = Math.Clamp(ImGui.GetWindowHeight() * 0.5f, 160 * Ui.Scale, 420 * Ui.Scale);
-        var width = Math.Min(available, maxHeight * aspect);
-
+        width = Math.Min(width, available);
         ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (available - width) / 2f);
         Draw(plate, preset, thumbnails, imageId, width, frameKnown, decorationKnown);
     }

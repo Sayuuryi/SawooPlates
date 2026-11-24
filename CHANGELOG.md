@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.12.0]
+
+### Recent and Presets
+- The plate keeps a fixed size; resizing the window only widens or narrows the parts list next to it
+- The window opens wider, so the plate and its parts fit side by side
+
 ## [0.9.11.0]
 
 ### Recent and Presets

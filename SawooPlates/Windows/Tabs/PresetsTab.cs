@@ -327,7 +327,7 @@ public sealed class PresetsTab(
         ImGui.Separator();
         ImGui.Spacing();
 
-        Ui.DetailColumns("Presets", () => DrawVisual(preset), () => plateItems.Draw(AsCapture(preset), preset.Preset!, showGearNote: false));
+        Ui.DetailColumns("Presets", Ui.VisualWidth(preset.Plate != null), () => DrawVisual(preset), () => plateItems.Draw(AsCapture(preset), preset.Preset!, showGearNote: false));
     }
 
     /// <summary>The plate (or the portrait alone), with camera and lighting under it.</summary>
@@ -335,11 +335,11 @@ public sealed class PresetsTab(
     {
         if (preset.Plate is { } plateDesign)
         {
-            plateRenderer.DrawFitted(plateDesign, preset.Preset!, thumbnails, preset.Id);
+            plateRenderer.DrawFitted(plateDesign, preset.Preset!, thumbnails, preset.Id, Ui.VisualWidth(true));
         }
         else
         {
-            var height = Math.Clamp(ImGui.GetWindowHeight() * 0.6f, 160 * Ui.Scale, 380 * Ui.Scale);
+            var height = Ui.VisualWidth(false) / 0.6f; // portraits are 3:5
             ImGui.SetCursorPosX(ImGui.GetCursorPosX() + Math.Max(0, (ImGui.GetContentRegionAvail().X - height * 0.6f) / 2f));
             portraitPanel.DrawPortrait(preset.Preset!, thumbnails, preset.Id, height);
         }

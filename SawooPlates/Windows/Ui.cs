@@ -33,13 +33,14 @@ public static class Ui
     }
 
     /// <summary>
-    /// Picture on the left and the parts list on the right, each scrolling on its own, so everything is visible
-    /// at once. Narrow windows get them stacked instead.
+    /// Picture on the left at a fixed width, parts list on the right taking the rest. Resizing the window only
+    /// changes the right side. Stacked only when the right side would be too narrow to read.
     /// </summary>
-    public static void DetailColumns(string id, Action visual, Action parts)
+    public static void DetailColumns(string id, float visualWidth, Action visual, Action parts)
     {
         var avail = ImGui.GetContentRegionAvail();
-        if (avail.X < 620 * Scale)
+        var gap = 14 * Scale;
+        if (avail.X - visualWidth - gap < 240 * Scale)
         {
             visual();
             ImGui.Dummy(new Vector2(0, 8 * Scale));
@@ -47,20 +48,22 @@ public static class Ui
             return;
         }
 
-        var left = MathF.Floor(avail.X * 0.5f);
-        using (var child = ImRaii.Child($"##{id}Visual", new Vector2(left, -1), false))
+        using (var child = ImRaii.Child($"##{id}Visual", new Vector2(visualWidth, -1), false))
         {
             if (child)
                 visual();
         }
 
-        ImGui.SameLine(0, 14 * Scale);
+        ImGui.SameLine(0, gap);
         using (var child = ImRaii.Child($"##{id}Parts", new Vector2(-1, -1), false))
         {
             if (child)
                 parts();
         }
     }
+
+    /// <summary>Width of the picture column: a fixed size, so it doesn't change when the window is resized.</summary>
+    public static float VisualWidth(bool hasPlate) => (hasPlate ? 420 : 240) * Scale;
 
     public static bool Button(FontAwesomeIcon icon, string text, bool disabled = false, string? tooltip = null)
     {
