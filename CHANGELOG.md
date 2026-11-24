@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.5.0]
+
+### Presets
+- "Apply to my portrait" applies right away; hold Ctrl while clicking to choose which parts to apply
+- "Apply plate design" works while Edit Plate Design is open
+
 ## [0.9.4.0]
 
 ### Presets

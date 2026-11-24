@@ -9,7 +9,8 @@ namespace SawooPlates.Capture;
 /// </summary>
 public sealed unsafe class PlateDesignApplier(IPluginLog log, CollectionService collection)
 {
-    private const string DesignAddon = "CharaCardDesignSetting";
+    // the game calls the window CharaCardDesignSetting; its layout file is CharacterCardDesignSetting
+    private static readonly string[] DesignAddons = ["CharaCardDesignSetting", "CharacterCardDesignSetting"];
 
     /// <summary>True while the design editor of your own plate is open.</summary>
     public bool CanApply
@@ -17,11 +18,18 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, CollectionService 
         get
         {
             var agent = AgentCharaCard.Instance();
-            if (agent == null || agent->Data == null || !agent->Data->CanEdit)
+            if (agent == null || agent->Data == null)
                 return false;
 
-            var addon = AddonUtil.GetAddon<AtkUnitBase>(DesignAddon);
-            return addon != null && addon->IsVisible && agent->Data->EditAddonId == addon->Id;
+            // the design editor only opens for your own plate
+            foreach (var name in DesignAddons)
+            {
+                var addon = AddonUtil.GetAddon<AtkUnitBase>(name);
+                if (addon != null && addon->IsVisible)
+                    return true;
+            }
+
+            return false;
         }
     }
 

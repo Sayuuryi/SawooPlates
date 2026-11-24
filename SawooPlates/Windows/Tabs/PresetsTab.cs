@@ -218,7 +218,7 @@ public sealed class PresetsTab(
         ImGui.Spacing();
 
         if (Ui.Button(FontAwesomeIcon.Magic, "Apply to my portrait", !actions.CanApply,
-                actions.CanApply ? "Opens Advanced Import with this preset, so you can pick what to take." : "Open your Portrait Editor first."))
+                actions.CanApply ? "Applies this portrait to your Portrait Editor.\nHold Ctrl while clicking to choose which parts to apply." : "Open your Portrait Editor first."))
         {
             actions.Apply(preset.Preset!);
         }
@@ -230,7 +230,7 @@ public sealed class PresetsTab(
             if (Ui.Button(FontAwesomeIcon.IdCard, "Apply plate design", !designApplier.CanApply,
                     designApplier.CanApply
                         ? "Puts this plate design in your design editor. Parts you haven't unlocked are skipped. Press Save in the game window to keep it."
-                        : "Open your Adventurer Plate, then Edit > Design, to use this."))
+                        : "Open your Adventurer Plate and go to Edit Plate Design to use this."))
             {
                 var skipped = designApplier.Apply(plate);
                 captureService.Notify(skipped > 0

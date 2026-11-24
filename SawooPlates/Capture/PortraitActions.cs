@@ -128,16 +128,17 @@ public sealed class PortraitActions(
             return;
         }
 
-        if (menuBar.IsOpen)
+        // Ctrl+click: pick which parts to take; plain click: apply everything right away
+        if (ImGui.GetIO().KeyCtrl && menuBar.IsOpen)
         {
             clipboardService.ClipboardPreset = preset;
             clipboardService.CurrentImportFlags = flags;
             menuBarState.OpenOverlay<AdvancedImportOverlay>();
+            return;
         }
-        else
-        {
-            bannerService.ImportPresetToState(preset, flags);
-        }
+
+        bannerService.ImportPresetToState(preset, flags);
+        captureService.Notify("Applied to your portrait. Press Save in the Portrait Editor to keep it.");
     }
 
     /// <summary>Deletes a preset from the Preset Browser together with its thumbnail.</summary>
