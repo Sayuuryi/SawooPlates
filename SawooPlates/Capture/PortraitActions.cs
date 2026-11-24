@@ -120,7 +120,7 @@ public sealed class PortraitActions(
     /// Applies a preset to the open Portrait Editor. With the menu bar on, it opens Advanced Import
     /// with the preset selected so the user picks the fields; otherwise it imports directly.
     /// </summary>
-    public void Apply(PortraitPresetData preset, ImportFlags flags = ImportFlags.All)
+    public void Apply(PortraitPresetData preset, ImportFlags flags = ImportFlags.All, bool? choose = null)
     {
         if (!CanApply)
         {
@@ -129,7 +129,7 @@ public sealed class PortraitActions(
         }
 
         // Ctrl+click: pick which parts to take; plain click: apply everything right away
-        if (ImGui.GetIO().KeyCtrl && menuBar.IsOpen)
+        if ((choose ?? ImGui.GetIO().KeyCtrl) && menuBar.IsOpen)
         {
             clipboardService.ClipboardPreset = preset;
             clipboardService.CurrentImportFlags = flags;

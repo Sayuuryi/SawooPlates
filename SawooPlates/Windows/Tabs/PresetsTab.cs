@@ -1,3 +1,4 @@
+using SawooPlates.PortraitEditor.Enums;
 using SawooPlates.Capture;
 using SawooPlates.Config;
 using SawooPlates.PortraitEditor.Services;
@@ -11,9 +12,8 @@ public sealed class PresetsTab(
     PortraitActions actions,
     PresetDetailPanel portraitPanel,
     PlateItems plateItems,
-    PlateDesignApplier designApplier,
-    CaptureService captureService,
-    PlateRenderer plateRenderer)
+    PlateRenderer plateRenderer,
+    ApplyControls applyControls)
 {
     private string _search = string.Empty;
     private Guid? _tagFilter;
@@ -217,27 +217,7 @@ public sealed class PresetsTab(
 
         ImGui.Spacing();
 
-        if (Ui.Button(FontAwesomeIcon.Magic, "Apply to my portrait", !actions.CanApply,
-                actions.CanApply ? "Applies this portrait to your Portrait Editor.\nHold Ctrl while clicking to choose which parts to apply." : "Open your Portrait Editor first."))
-        {
-            actions.Apply(preset.Preset!);
-        }
-
-        var plate = preset.Plate;
-        if (plate != null)
-        {
-            ImGui.SameLine();
-            if (Ui.Button(FontAwesomeIcon.IdCard, "Apply plate design", !designApplier.CanApply,
-                    designApplier.CanApply
-                        ? "Puts this plate design in your design editor. Parts you haven't unlocked are skipped. Press Save in the game window to keep it."
-                        : "Open your Adventurer Plate and go to Edit Plate Design to use this."))
-            {
-                var skipped = designApplier.Apply(plate);
-                captureService.Notify(skipped > 0
-                    ? $"Plate design applied. {skipped} part(s) you haven't unlocked were skipped. Press Save to keep it."
-                    : "Plate design applied. Press Save in the design window to keep it.");
-            }
-        }
+        applyControls.Draw(preset.Preset!, preset.Plate, ImportFlags.All);
 
         ImGui.SameLine();
         if (Ui.Button(FontAwesomeIcon.Copy, "Copy code"))

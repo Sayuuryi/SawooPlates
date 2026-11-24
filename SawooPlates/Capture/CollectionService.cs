@@ -53,10 +53,12 @@ public sealed unsafe class CollectionService(ExcelService excelService, BannerSe
         if (conditionId == null)
             return Ownership.Unknown();
 
-        if (bannerService.IsBannerConditionUnlocked(conditionId.Value))
-            return new Ownership(OwnState.Have);
-
-        return new Ownership(OwnState.Missing, Hint: GetUnlockHint(conditionId.Value));
+        return bannerService.TryGetBannerConditionUnlocked(conditionId.Value) switch
+        {
+            true => new Ownership(OwnState.Have),
+            false => new Ownership(OwnState.Missing, Hint: GetUnlockHint(conditionId.Value)),
+            null => Ownership.Unknown("Still loading. Hover again in a moment."),
+        };
     }
 
     /// <summary>The game's own "how to obtain" text for a BannerCondition.</summary>

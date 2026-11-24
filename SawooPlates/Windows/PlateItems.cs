@@ -13,7 +13,40 @@ public sealed class PlateItems(
     BannerService bannerService,
     CollectionService collection)
 {
-    private sealed record Row(uint IconId, string Name, string Kind, Ownership Own, List<(uint Rgb, string Name)>? Dyes = null, uint PreviewId = 0, string? Extra = null);
+    private sealed record Row(uint IconId, string Name, string Kind, Ownership Own, List<(uint Rgb, string Name)>? Dyes = null, uint PreviewId = 0, string? Extra = null, PlatePart Part = PlatePart.None, ushort PartId = 0);
+
+    /// <summary>Which plate design slot a row belongs to, for applying only some parts.</summary>
+    public enum PlatePart { None, Base, TopBorder, BottomBorder, Decoration }
+
+    /// <summary>One thing in a group, as shown in tooltips and the choose-parts window.</summary>
+    public sealed record PartInfo(uint IconId, string Name, string Kind, Ownership Own, PlatePart Part, ushort PartId);
+
+    /// <summary>Rows of one group ("Portrait", "Plate" or "Gear").</summary>
+    public List<PartInfo> GetParts(CapturedPortrait? capture, PortraitPresetData preset, string group, bool frameKnown = true, bool decorationKnown = true)
+        => BuildGroups(capture, preset, frameKnown, decorationKnown)
+            .Where(g => g.Title == group)
+            .SelectMany(g => g.Rows)
+            .Select(r => new PartInfo(r.IconId, r.Name, r.Kind, r.Own, r.Part, r.PartId))
+            .ToList();
+
+    /// <summary>Small list of missing things for a tooltip: icon, name, kind.</summary>
+    public void DrawMissingList(IReadOnlyList<PartInfo> missing)
+    {
+        if (missing.Count == 0)
+            return;
+
+        ImGui.Spacing();
+        ImGui.TextColored(Ui.Bad, missing.Count == 1 ? "You're missing 1 part:" : $"You're missing {missing.Count} parts:");
+        var size = ImGui.GetTextLineHeight();
+        foreach (var part in missing)
+        {
+            Ui.IconFit(textures, part.IconId, size);
+            ImGui.SameLine();
+            ImGui.TextUnformatted(part.Name);
+            ImGui.SameLine();
+            ImGui.TextColored(Ui.Dim, part.Kind);
+        }
+    }
 
     private sealed record Group(string Title, List<Row> Rows)
     {
@@ -187,13 +220,13 @@ public sealed class PlateItems(
             var rows = new List<Row>();
 
             if (plate.BasePlate != 0 && excel.TryGetRow<CharaCardBase>(plate.BasePlate, out var basePlate))
-                rows.Add(new Row((uint)basePlate.Image, basePlate.Name.ToString(), "Base plate", collection.PlateBase(plate.BasePlate), PreviewId: (uint)basePlate.Image));
+                rows.Add(new Row((uint)basePlate.Image, basePlate.Name.ToString(), "Base plate", collection.PlateBase(plate.BasePlate), PreviewId: (uint)basePlate.Image, Part: PlatePart.Base, PartId: plate.BasePlate));
 
             if (plate.TopBorder != 0 && excel.TryGetRow<CharaCardHeader>(plate.TopBorder, out var top))
-                rows.Add(new Row((uint)top.TopImage, top.Name.ToString(), "Top border", collection.PlateHeader(plate.TopBorder), PreviewId: (uint)top.TopImage));
+                rows.Add(new Row((uint)top.TopImage, top.Name.ToString(), "Top border", collection.PlateHeader(plate.TopBorder), PreviewId: (uint)top.TopImage, Part: PlatePart.TopBorder, PartId: plate.TopBorder));
 
             if (plate.BottomBorder != 0 && excel.TryGetRow<CharaCardHeader>(plate.BottomBorder, out var bottom))
-                rows.Add(new Row((uint)bottom.BottomImage, bottom.Name.ToString(), "Bottom border", collection.PlateHeader(plate.BottomBorder), PreviewId: (uint)bottom.BottomImage));
+                rows.Add(new Row((uint)bottom.BottomImage, bottom.Name.ToString(), "Bottom border", collection.PlateHeader(plate.BottomBorder), PreviewId: (uint)bottom.BottomImage, Part: PlatePart.BottomBorder, PartId: plate.BottomBorder));
 
             foreach (var decoration in plate.Decorations.Where(d => d != 0))
             {
@@ -210,7 +243,7 @@ public sealed class PlateItems(
                     _ => "Decoration",
                 };
 
-                rows.Add(new Row((uint)row.Image, row.Name.ToString(), kind, collection.PlateDecoration(decoration), PreviewId: (uint)row.Image));
+                rows.Add(new Row((uint)row.Image, row.Name.ToString(), kind, collection.PlateDecoration(decoration), PreviewId: (uint)row.Image, Part: PlatePart.Decoration, PartId: decoration));
             }
 
             if (rows.Count > 0)

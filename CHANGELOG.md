@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.6.0]
+
+### Presets
+- The apply buttons list the parts you don't have, with icons
+- Applying with missing parts asks first
+- Ctrl+click on "Apply plate design" lets you pick which parts to apply
+
+### Fixes
+- Unlock status no longer flickers in the list tooltips
+
 ## [0.9.5.0]
 
 ### Presets

@@ -58,24 +58,32 @@ public unsafe class BannerService(IPluginLog _logger, ExcelService _excelService
         return IsBannerConditionUnlocked(bannerTimeline.UnlockCondition.RowId);
     }
 
+    // last answer per condition; the game's row cache isn't always loaded, so without this
+    // the answer would jump between unlocked and locked from one frame to the next
+    private readonly Dictionary<uint, bool> _unlockCache = [];
+
     public bool IsBannerConditionUnlocked(uint id)
+        => TryGetBannerConditionUnlocked(id) ?? false;
+
+    /// <summary>Null when the game hasn't loaded the condition yet and there is no earlier answer.</summary>
+    public bool? TryGetBannerConditionUnlocked(uint id)
     {
         if (id == 0)
             return true;
 
         var exdModule = UIModule.Instance()->GetExcelModuleInterface()->ExdModule;
-        if (exdModule == null)
-            return false;
+        if (exdModule != null)
+        {
+            var bannerConditionSheet = exdModule->GetSheetByName("BannerCondition");
+            if (bannerConditionSheet != null)
+            {
+                var row = exdModule->GetRowBySheetAndRowId(bannerConditionSheet, id);
+                if (row != null && row->Data != null)
+                    return _unlockCache[id] = ExdModule.GetBannerConditionUnlockState(row->Data) == 0;
+            }
+        }
 
-        var bannerConditionSheet = exdModule->GetSheetByName("BannerCondition");
-        if (bannerConditionSheet == null)
-            return false;
-
-        var row = exdModule->GetRowBySheetAndRowId(bannerConditionSheet, id);
-        if (row == null || row->Data == null)
-            return false;
-
-        return ExdModule.GetBannerConditionUnlockState(row->Data) == 0;
+        return _unlockCache.TryGetValue(id, out var known) ? known : null;
     }
 
     public string GetBannerTimelineName(uint id)

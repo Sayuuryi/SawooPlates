@@ -65,6 +65,7 @@ public static class PluginServices
             .AddSingleton<PresetDetailPanel>()
             .AddSingleton<PlateItems>()
             .AddSingleton<PlateRenderer>()
+            .AddSingleton<ApplyControls>()
             .AddSingleton<SawooPlates.Windows.Tabs.RecentTab>()
             .AddSingleton<SawooPlates.Windows.Tabs.PresetsTab>()
             .AddSingleton<SawooPlates.Windows.Tabs.SettingsTab>()
