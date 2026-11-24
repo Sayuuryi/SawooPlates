@@ -20,9 +20,11 @@ public sealed class Plugin : IDalamudPlugin
 
     private readonly IDalamudPluginInterface _pluginInterface;
     private readonly ICommandManager _commandManager;
+    private readonly IPluginLog _log;
     private readonly ServiceProvider _services;
     private readonly WindowSystem _windowSystem = new("SawooPlates");
-    private readonly MainWindow _mainWindow;
+    private readonly MainWindow? _mainWindow;
+    private bool _hooked;
 
     public Plugin(
         IDalamudPluginInterface pluginInterface,
@@ -42,6 +44,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         _pluginInterface = pluginInterface;
         _commandManager = commandManager;
+        _log = log;
 
         BgraImage.Device = pluginInterface.UiBuilder.DeviceHandle;
 
@@ -92,6 +95,8 @@ public sealed class Plugin : IDalamudPlugin
             .AddSingleton<CaptureService>()
             .AddSingleton<GearReader>()
             .AddSingleton<CollectionService>()
+            .AddSingleton<PresetImporter>()
+            .AddSingleton<ImportPromptWindow>()
             .AddSingleton<CharaCardSource>()
             .AddSingleton<BannerPartySource>()
             .AddSingleton<PartyCaptureBar>()
@@ -107,36 +112,67 @@ public sealed class Plugin : IDalamudPlugin
             .AddSingleton<MainWindow>()
             .BuildServiceProvider();
 
-        _mainWindow = _services.GetRequiredService<MainWindow>();
-        _windowSystem.AddWindow(_mainWindow);
+        try
+        {
+            _mainWindow = _services.GetRequiredService<MainWindow>();
+            _windowSystem.AddWindow(_mainWindow);
 
-        _services.GetRequiredService<PortraitEditorModule>();
-        _services.GetRequiredService<CharaCardSource>();
-        _services.GetRequiredService<BannerPartySource>();
-        _windowSystem.AddWindow(_services.GetRequiredService<PartyCaptureBar>());
-        _services.GetRequiredService<PlateContextMenu>();
-        _windowSystem.AddWindow(_services.GetRequiredService<PlateCaptureButton>());
+            _services.GetRequiredService<PortraitEditorModule>();
+            _services.GetRequiredService<CharaCardSource>();
+            _services.GetRequiredService<BannerPartySource>();
+            _services.GetRequiredService<PlateContextMenu>();
+            _windowSystem.AddWindow(_services.GetRequiredService<PlateCaptureButton>());
+            _windowSystem.AddWindow(_services.GetRequiredService<PartyCaptureBar>());
+            _windowSystem.AddWindow(_services.GetRequiredService<ImportPromptWindow>());
 
-        _commandManager.AddHandler(Command, new CommandInfo(OnCommand) { HelpMessage = "Open the Sawoo Plates window. \"/splates dump party\" or \"dump mvp\" writes the open portrait window's layout to /xllog." });
-        _commandManager.AddHandler(CommandAlias, new CommandInfo(OnCommand) { ShowInHelp = false });
+            _commandManager.AddHandler(Command, new CommandInfo(OnCommand) { HelpMessage = "Open the Sawoo Plates window. \"/splates dump party\" or \"dump mvp\" writes the open portrait window's layout to /xllog." });
+            _commandManager.AddHandler(CommandAlias, new CommandInfo(OnCommand) { ShowInHelp = false });
 
-        _pluginInterface.UiBuilder.Draw += _windowSystem.Draw;
-        _pluginInterface.UiBuilder.OpenMainUi += _mainWindow.Toggle;
-        _pluginInterface.UiBuilder.OpenConfigUi += OpenSettings;
+            _pluginInterface.UiBuilder.Draw += _windowSystem.Draw;
+            _pluginInterface.UiBuilder.OpenMainUi += ToggleMain;
+            _pluginInterface.UiBuilder.OpenConfigUi += OpenSettings;
+            _hooked = true;
+        }
+        catch (Exception ex)
+        {
+            // undo whatever was set up, so a failed start never leaves hooks or listeners behind
+            _log.Error(ex, "Sawoo Plates failed to start");
+            Dispose();
+            throw;
+        }
     }
 
     public void Dispose()
     {
-        _pluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
-        _pluginInterface.UiBuilder.OpenMainUi -= _mainWindow.Toggle;
-        _pluginInterface.UiBuilder.OpenConfigUi -= OpenSettings;
+        if (_hooked)
+        {
+            _pluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
+            _pluginInterface.UiBuilder.OpenMainUi -= ToggleMain;
+            _pluginInterface.UiBuilder.OpenConfigUi -= OpenSettings;
+            _hooked = false;
+        }
 
-        _commandManager.RemoveHandler(Command);
-        _commandManager.RemoveHandler(CommandAlias);
+        Try(() => _commandManager.RemoveHandler(Command));
+        Try(() => _commandManager.RemoveHandler(CommandAlias));
 
-        _services.Dispose();
-        _windowSystem.RemoveAllWindows();
+        // services unhook from the game in their own Dispose; keep going if one of them fails
+        Try(_services.Dispose);
+        Try(_windowSystem.RemoveAllWindows);
     }
+
+    private void Try(Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Error while shutting down");
+        }
+    }
+
+    private void ToggleMain() => _mainWindow?.Toggle();
 
     private void OnCommand(string command, string args)
     {
@@ -153,8 +189,8 @@ public sealed class Plugin : IDalamudPlugin
             return;
         }
 
-        _mainWindow.Toggle();
+        _mainWindow?.Toggle();
     }
 
-    private void OpenSettings() => _mainWindow.Open(MainWindow.Tab.Settings);
+    private void OpenSettings() => _mainWindow?.Open(MainWindow.Tab.Settings);
 }

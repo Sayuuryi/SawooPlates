@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0.0]
+
+### Presets
+- Offers once to import presets you already have on this PC, with a button in Settings for later
+
+### Fixes
+- A failed start now cleans up after itself, so the next load or update isn't affected
+
 ## [0.7.0.0]
 
 ### UI

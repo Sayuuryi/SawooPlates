@@ -12,9 +12,12 @@ public sealed class SettingsTab(
     TextService textService,
     PluginConfig pluginConfig,
     CaptureService captureService,
+    PresetImporter presetImporter,
     IServiceProvider serviceProvider)
 {
     private const string Prefix = "Editor.Config";
+
+    private string? _importMessage;
 
     public void Draw()
     {
@@ -101,6 +104,32 @@ public sealed class SettingsTab(
             }
 
             changed |= DrawBool("EmbedPresetStringInThumbnails", ref config.EmbedPresetStringInThumbnails);
+
+            if (presetImporter.SourceExists)
+            {
+                ImGui.Spacing();
+                if (Ui.Button(FontAwesomeIcon.FileImport, $"Import presets from {PresetImporter.SourcePlugin}",
+                        tooltip: "Copies presets, tags and thumbnails. Presets you already have are skipped."))
+                {
+                    try
+                    {
+                        var result = presetImporter.ImportAll();
+                        _importMessage = result.Imported == 0
+                            ? "Nothing new to import."
+                            : $"Imported {result.Imported} presets.";
+                    }
+                    catch (Exception ex)
+                    {
+                        _importMessage = $"Couldn't import: {ex.Message}";
+                    }
+                }
+
+                if (_importMessage != null)
+                {
+                    ImGui.SameLine();
+                    ImGui.TextColored(Ui.Dim, _importMessage);
+                }
+            }
         }
 
         if (Group("Gear and portrait", FontAwesomeIcon.Tshirt))

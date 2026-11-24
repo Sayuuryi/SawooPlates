@@ -33,6 +33,9 @@ public class PluginConfig : IPluginConfiguration
 
     public CaptureSettings Capture { get; set; } = new();
 
+    /// <summary>Set once the user answered the preset import prompt.</summary>
+    public bool PresetImportOffered { get; set; }
+
     /// <summary>Show the menu bar and overlays in the Portrait Editor.</summary>
     public bool EnablePortraitEditorTools { get; set; } = true;
 
