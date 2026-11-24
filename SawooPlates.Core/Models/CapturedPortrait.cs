@@ -58,7 +58,9 @@ public record PlateDesignData
     public byte TopBorder { get; init; }
     public byte BottomBorder { get; init; }
     public ushort[] Decorations { get; init; } = [];
-    public bool PortraitOnRight { get; init; }
+    /// <summary>The game's "invert portrait placement": true puts the portrait on the left (it is on the right by default).</summary>
+    [JsonPropertyName("PortraitOnRight")] // name kept so saved data still loads
+    public bool InvertPortraitPlacement { get; init; }
 }
 
 /// <summary>One equipped item as shown in a portrait.</summary>

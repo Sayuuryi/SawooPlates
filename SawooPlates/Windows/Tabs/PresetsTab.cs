@@ -12,7 +12,8 @@ public sealed class PresetsTab(
     PresetDetailPanel portraitPanel,
     PlateItems plateItems,
     PlateDesignApplier designApplier,
-    CaptureService captureService)
+    CaptureService captureService,
+    PlateRenderer plateRenderer)
 {
     private string _search = string.Empty;
     private Guid? _tagFilter;
@@ -275,11 +276,20 @@ public sealed class PresetsTab(
         ImGui.Separator();
         ImGui.Spacing();
 
-        var height = Math.Min(380 * Ui.Scale, ImGui.GetContentRegionAvail().Y);
-        using (ImRaii.Group())
-            portraitPanel.DrawPortrait(preset.Preset!, thumbnails, preset.Id, height);
+        if (preset.Plate is { } plateDesign)
+        {
+            var width = Math.Min(ImGui.GetContentRegionAvail().X, 640 * Ui.Scale);
+            plateRenderer.Draw(plateDesign, preset.Preset!, thumbnails, preset.Id, width);
+            ImGui.Spacing();
+        }
+        else
+        {
+            var height = Math.Min(380 * Ui.Scale, ImGui.GetContentRegionAvail().Y);
+            using (ImRaii.Group())
+                portraitPanel.DrawPortrait(preset.Preset!, thumbnails, preset.Id, height);
 
-        ImGui.SameLine(0, 14 * Ui.Scale);
+            ImGui.SameLine(0, 14 * Ui.Scale);
+        }
 
         using var items = ImRaii.Child("##Items", new Vector2(-1, -1), false);
         if (!items.Success)

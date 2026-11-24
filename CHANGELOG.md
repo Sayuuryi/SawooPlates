@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.9.4.0]
+
+### Presets
+- Presets with a plate design show the whole Adventurer Plate: backing, base, borders, frames, accent and the portrait in its place
+
 ## [0.9.3.0]
 
 ### Lists

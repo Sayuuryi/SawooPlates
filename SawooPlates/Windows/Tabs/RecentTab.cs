@@ -9,7 +9,8 @@ public sealed class RecentTab(
     PortraitActions actions,
     PresetDetailPanel portraitPanel,
     PlateItems plateItems,
-    PlateDesignApplier designApplier)
+    PlateDesignApplier designApplier,
+    PlateRenderer plateRenderer)
 {
     private enum SortMode { Newest, Oldest, Name }
 
@@ -328,11 +329,21 @@ public sealed class RecentTab(
         ImGui.Spacing();
 
         // portrait on the left, items on the right
-        var height = Math.Min(380 * Ui.Scale, ImGui.GetContentRegionAvail().Y);
-        using (ImRaii.Group())
-            portraitPanel.DrawPortrait(capture.Preset, thumbnails, capture.Id, height, capture.FrameKnown, capture.DecorationKnown);
+        if (capture.Plate is { } plateDesign)
+        {
+            // the whole Adventurer Plate across the top, the list of parts below it
+            var width = Math.Min(ImGui.GetContentRegionAvail().X, 640 * Ui.Scale);
+            plateRenderer.Draw(plateDesign, capture.Preset, thumbnails, capture.Id, width, capture.FrameKnown, capture.DecorationKnown);
+            ImGui.Spacing();
+        }
+        else
+        {
+            var height = Math.Min(380 * Ui.Scale, ImGui.GetContentRegionAvail().Y);
+            using (ImRaii.Group())
+                portraitPanel.DrawPortrait(capture.Preset, thumbnails, capture.Id, height, capture.FrameKnown, capture.DecorationKnown);
 
-        ImGui.SameLine(0, 14 * Ui.Scale);
+            ImGui.SameLine(0, 14 * Ui.Scale);
+        }
 
         using var items = ImRaii.Child("##Items", new Vector2(-1, -1), false);
         if (!items.Success)

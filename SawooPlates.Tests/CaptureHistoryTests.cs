@@ -125,13 +125,13 @@ public class CaptureHistoryTests
     public void SetGearAndJsonRoundTripOfPlateAndGear()
     {
         var history = new CaptureHistory();
-        var entry = history.Add(Capture("A", 1) with { Plate = new PlateDesignData { BasePlate = 9, Decorations = [1, 2, 3, 4, 5], PortraitOnRight = true } }, true, 10).Entry;
+        var entry = history.Add(Capture("A", 1) with { Plate = new PlateDesignData { BasePlate = 9, Decorations = [1, 2, 3, 4, 5], InvertPortraitPlacement = true } }, true, 10).Entry;
 
         Assert.True(history.SetGear(entry.Id, [new GearPiece { Slot = 3, ItemId = 42, Stain0 = 1, Stain1 = 2 }]));
 
         var loaded = Assert.Single(CaptureHistory.FromJson(history.ToJson()).Entries);
         Assert.Equal(42u, Assert.Single(loaded.Gear).ItemId);
-        Assert.True(loaded.Plate!.PortraitOnRight);
+        Assert.True(loaded.Plate!.InvertPortraitPlacement);
         Assert.Equal(new ushort[] { 1, 2, 3, 4, 5 }, loaded.Plate.Decorations);
     }
 }

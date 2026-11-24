@@ -73,7 +73,7 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, CollectionService 
             slots[i] = i < decorations.Count ? decorations[i] : (ushort)0;
         plate.NumDecorations = (byte)Math.Min(decorations.Count, slots.Length);
 
-        data->InvertPortraitPlacement = design.PortraitOnRight;
+        data->InvertPortraitPlacement = design.InvertPortraitPlacement;
 
         log.Debug("Applied plate design ({skipped} parts skipped)", skipped);
         return skipped;

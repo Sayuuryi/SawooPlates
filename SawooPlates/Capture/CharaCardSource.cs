@@ -153,7 +153,7 @@ public sealed unsafe class CharaCardSource : IDisposable
                 TopBorder = data->PlateDesign.TopBorder,
                 BottomBorder = data->PlateDesign.BottomBorder,
                 Decorations = data->PlateDesign.Decorations[..Math.Min((int)data->PlateDesign.NumDecorations, data->PlateDesign.Decorations.Length)].ToArray(),
-                PortraitOnRight = data->InvertPortraitPlacement,
+                InvertPortraitPlacement = data->InvertPortraitPlacement,
             },
             Gear = _gearReader.Read(&data->CharaView),
         };

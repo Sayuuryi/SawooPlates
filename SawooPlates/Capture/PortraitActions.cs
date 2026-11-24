@@ -88,7 +88,7 @@ public sealed class PortraitActions(
             return a == b;
 
         return a.BasePlate == b.BasePlate && a.TopBorder == b.TopBorder && a.BottomBorder == b.BottomBorder
-            && a.PortraitOnRight == b.PortraitOnRight && a.Decorations.SequenceEqual(b.Decorations);
+            && a.InvertPortraitPlacement == b.InvertPortraitPlacement && a.Decorations.SequenceEqual(b.Decorations);
     }
 
     /// <summary>True when the Portrait Editor is open and a portrait can be applied to it.</summary>
