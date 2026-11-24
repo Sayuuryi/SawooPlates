@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.6.1.0]
+
+### Fixes
+- A portrait image could fail to save when two saves of the same image overlapped
+
 ## [0.6.0.0]
 
 ### Portrait Editor

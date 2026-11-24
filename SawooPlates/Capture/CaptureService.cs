@@ -23,6 +23,9 @@ public sealed class CaptureService : IDisposable
 
     // image grabs run in UiBuilder.Draw, where using the D3D11 immediate context is safe
     private readonly ConcurrentQueue<ImageRequest> _imageRequests = new();
+
+    // one image job per entry at a time; a plate opening fires more than one event
+    private readonly ConcurrentDictionary<Guid, byte> _imagesInFlight = new();
     private readonly Lock _saveLock = new();
     private CancellationTokenSource? _saveCts;
 
@@ -73,7 +76,7 @@ public sealed class CaptureService : IDisposable
         foreach (var old in removed)
             DeleteImage(old.Id);
 
-        if (grabImage != null && (result == AddResult.Added || !entry.HasImage))
+        if (grabImage != null && (result == AddResult.Added || !entry.HasImage) && _imagesInFlight.TryAdd(entry.Id, 0))
             _imageRequests.Enqueue(new ImageRequest(entry.Id, grabImage, entry.Preset.ToExportedString(), DateTime.UtcNow.AddSeconds(5)));
 
         _log.Debug("Captured portrait of {name} ({source}, {result})", entry.Name, entry.Source.ToString(), result.ToString());
@@ -143,6 +146,7 @@ public sealed class CaptureService : IDisposable
             catch (Exception ex)
             {
                 _log.Warning(ex, "Could not read portrait image");
+                _imagesInFlight.TryRemove(request.Id, out _);
                 continue;
             }
 
@@ -150,6 +154,8 @@ public sealed class CaptureService : IDisposable
             {
                 if (DateTime.UtcNow < request.GiveUpAt)
                     _imageRequests.Enqueue(request); // texture not loaded yet, try again next frame
+                else
+                    _imagesInFlight.TryRemove(request.Id, out _);
                 continue;
             }
 
@@ -158,9 +164,12 @@ public sealed class CaptureService : IDisposable
 
             _ = Task.Run(() =>
             {
+                var temp = path + ".tmp";
                 try
                 {
-                    image.SaveAsPng(path, embed);
+                    // write next to the target and swap it in, so a thumbnail being read never blocks the save
+                    image.SaveAsPng(temp, embed);
+                    File.Move(temp, path, overwrite: true);
                     _thumbnails.Invalidate(request.Id);
 
                     var entry = History.Entries.FirstOrDefault(e => e.Id == request.Id);
@@ -173,10 +182,12 @@ public sealed class CaptureService : IDisposable
                 catch (Exception ex)
                 {
                     _log.Warning(ex, "Could not save portrait image");
+                    try { File.Delete(temp); } catch { /* best effort */ }
                 }
                 finally
                 {
                     image.Dispose();
+                    _imagesInFlight.TryRemove(request.Id, out _);
                 }
             });
         }
