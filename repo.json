@@ -3,8 +3,8 @@
     "Author": "Sayuuryi",
     "Name": "Sawoo Plates",
     "InternalName": "SawooPlates",
-    "AssemblyVersion": "0.7.0.0",
-    "Description": "Adds a small menu bar to the Portrait Editor: copy and paste preset codes, a preset library with thumbnails and tags, finer camera, eye and head controls, and an alignment grid.\r\n\r\nIt also tells you when your gear no longer matches your portrait.",
+    "AssemblyVersion": "0.8.0.0",
+    "Description": "Adds a small menu bar to the Portrait Editor with preset codes, a preset library and finer camera controls.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/Sayuuryi/SawooPlates",
     "Tags": [
@@ -21,10 +21,10 @@
     "IconUrl": "https://raw.githubusercontent.com/Sayuuryi/SawooPlates/main/SawooPlates/Assets/icon.png",
     "Punchline": "A few extra tools for the Portrait Editor.",
     "AcceptsFeedback": true,
-    "DownloadLinkInstall": "https://github.com/Sayuuryi/SawooPlates/releases/download/v0.7.0.0/latest.zip",
-    "DownloadLinkUpdate": "https://github.com/Sayuuryi/SawooPlates/releases/download/v0.7.0.0/latest.zip",
-    "DownloadLinkTesting": "https://github.com/Sayuuryi/SawooPlates/releases/download/v0.7.0.0/latest.zip",
-    "LastUpdate": 1795545721,
-    "Changelog": "### UI\n- Reworked main window: cleaner lists with icons, a clear action bar, and empty screens that say what to do\n- Each portrait lists its background, frame, accent, pose and expression with a check or cross for whether you have it\n- Hover an item to see a larger preview, details and how to unlock it\n- Camera and lighting numbers moved into a collapsed section\n- Settings grouped into sections\n- About tab lists the commands\n\n### Presets\n- Edit a preset's name and tags from the Presets tab, and add new tags there\n- Presets show which parts you haven't unlocked yet"
+    "DownloadLinkInstall": "https://github.com/Sayuuryi/SawooPlates/releases/download/v0.8.0.0/latest.zip",
+    "DownloadLinkUpdate": "https://github.com/Sayuuryi/SawooPlates/releases/download/v0.8.0.0/latest.zip",
+    "DownloadLinkTesting": "https://github.com/Sayuuryi/SawooPlates/releases/download/v0.8.0.0/latest.zip",
+    "LastUpdate": 1795546532,
+    "Changelog": "### Presets\n- Offers once to import presets you already have on this PC, with a button in Settings for later\n\n### Fixes\n- A failed start now cleans up after itself, so the next load or update isn't affected"
   }
 ]
