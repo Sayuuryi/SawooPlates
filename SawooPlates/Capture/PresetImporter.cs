@@ -13,7 +13,8 @@ public sealed class PresetImporter(
     IDalamudPluginInterface pluginInterface,
     IPluginLog log,
     PluginConfig pluginConfig,
-    ThumbnailService presetThumbnails)
+    ThumbnailService presetThumbnails,
+    BackupService backups)
 {
     /// <summary>Plugin whose preset library can be imported.</summary>
     public const string SourcePlugin = "HaselTweaks";
@@ -55,6 +56,10 @@ public sealed class PresetImporter(
     {
         var library = Read();
         var config = pluginConfig.PortraitEditor;
+
+        // keep a copy of both sides as they were, before anything is merged
+        if (backups.Create("before-import", ConfigPath) == null)
+            throw new IOException("Couldn't make a backup first, so nothing was imported.");
 
         var (result, added) = PresetLibraryMerger.Merge(library, config.Presets, config.PresetTags);
 

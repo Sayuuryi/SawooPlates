@@ -10,9 +10,6 @@ public class PortraitEditorSettings
     public int AlignmentToolHorizontalLines = 2;
     public Vector4 AlignmentToolHorizontalColor = new(0, 0, 0, 1f);
 
-    public bool EmbedPresetStringInThumbnails = true;
     public bool NotifyGearChecksumMismatch = true;
-    public bool ReequipGearsetOnUpdate = false;
-    public bool AutoUpdatePotraitOnGearUpdate = false;
     public bool IgnoreDoHDoL = false;
 }

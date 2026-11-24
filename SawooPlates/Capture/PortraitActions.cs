@@ -30,12 +30,9 @@ public sealed class PortraitActions(
         {
             await clipboardService.SetClipboardPortraitPreset(preset).ConfigureAwait(false);
 
-            if (captureService.Settings.NotifyOnCopy)
-            {
-                captureService.Notify(who == null
-                    ? textService.Translate("SawooPlates.Notification.CodeCopied")
-                    : textService.Translate("SawooPlates.Notification.CodeCopiedFrom", who));
-            }
+            captureService.Notify(who == null
+                ? textService.Translate("SawooPlates.Notification.CodeCopied")
+                : textService.Translate("SawooPlates.Notification.CodeCopiedFrom", who));
         });
     }
 

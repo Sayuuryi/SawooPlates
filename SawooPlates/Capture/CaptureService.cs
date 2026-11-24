@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Lumina.Data.Files;
 using Dalamud.Interface.ImGuiNotification;
 using SawooPlates.Config;
 using SawooPlates.Core.History;
@@ -20,6 +21,9 @@ public sealed class CaptureService : IDisposable
     private readonly PluginConfig _pluginConfig;
     private readonly TextService _textService;
     private readonly CaptureThumbnailService _thumbnails;
+    private readonly ITextureProvider _textureProvider;
+    private readonly IDataManager _dataManager;
+    private readonly ExcelService _excelService;
 
     // image grabs run in UiBuilder.Draw, where using the D3D11 immediate context is safe
     private readonly ConcurrentQueue<ImageRequest> _imageRequests = new();
@@ -29,7 +33,7 @@ public sealed class CaptureService : IDisposable
     private readonly Lock _saveLock = new();
     private CancellationTokenSource? _saveCts;
 
-    private sealed record ImageRequest(Guid Id, Func<BgraImage?> Grab, string PresetCode, DateTime GiveUpAt);
+    private sealed record ImageRequest(Guid Id, Func<BgraImage?> Grab, string PresetCode, uint BannerBg, DateTime GiveUpAt);
 
     public CaptureService(
         IDalamudPluginInterface pluginInterface,
@@ -37,8 +41,14 @@ public sealed class CaptureService : IDisposable
         INotificationManager notificationManager,
         PluginConfig pluginConfig,
         TextService textService,
-        CaptureThumbnailService thumbnails)
+        CaptureThumbnailService thumbnails,
+        ITextureProvider textureProvider,
+        IDataManager dataManager,
+        ExcelService excelService)
     {
+        _textureProvider = textureProvider;
+        _dataManager = dataManager;
+        _excelService = excelService;
         _pluginInterface = pluginInterface;
         _log = log;
         _notificationManager = notificationManager;
@@ -71,25 +81,15 @@ public sealed class CaptureService : IDisposable
     /// </summary>
     public CapturedPortrait Add(CapturedPortrait capture, Func<BgraImage?>? grabImage, bool manual)
     {
-        var (result, entry, removed) = History.Add(capture, Settings.DedupePerPlayer, Settings.MaxHistorySize);
+        var (result, entry, removed) = History.Add(capture, true, Settings.MaxHistorySize);
 
         foreach (var old in removed)
             DeleteImage(old.Id);
 
         if (grabImage != null && (result == AddResult.Added || !entry.HasImage) && _imagesInFlight.TryAdd(entry.Id, 0))
-            _imageRequests.Enqueue(new ImageRequest(entry.Id, grabImage, entry.Preset.ToExportedString(), DateTime.UtcNow.AddSeconds(5)));
+            _imageRequests.Enqueue(new ImageRequest(entry.Id, grabImage, entry.Preset.ToExportedString(), entry.Preset.BannerBg, DateTime.UtcNow.AddSeconds(5)));
 
         _log.Debug("Captured portrait of {name} ({source}, {result})", entry.Name, entry.Source.ToString(), result.ToString());
-
-        if (Settings.NotifyOnCapture && (result == AddResult.Added || manual))
-        {
-            _notificationManager.AddNotification(new Notification
-            {
-                Title = "Sawoo Plates",
-                Content = _textService.Translate("SawooPlates.Capture.Notification.Captured", entry.Name),
-                Type = NotificationType.Info,
-            });
-        }
 
         ScheduleSave();
         Captured?.Invoke(entry);
@@ -140,6 +140,22 @@ public sealed class CaptureService : IDisposable
         });
     }
 
+    /// <summary>The portrait drawn over its BannerBg image, or null when there is no background to add.</summary>
+    private BgraImage? AddBackground(BgraImage portrait, uint bannerBg)
+    {
+        if (!_excelService.TryGetRow<BannerBg>(bannerBg, out var row) || row.Image == 0
+            || !_textureProvider.TryGetIconPath((uint)row.Image, out var path)
+            || _dataManager.GetFile<TexFile>(path) is not { } tex)
+        {
+            return null;
+        }
+
+        var background = BgraImage.FromTexFile(tex);
+        background.Resize(portrait.Width, portrait.Height);
+        background.CompositeLayers(portrait);
+        return background;
+    }
+
     private void ProcessImageRequests()
     {
         var count = _imageRequests.Count;
@@ -167,15 +183,18 @@ public sealed class CaptureService : IDisposable
             }
 
             var path = GetImagePath(request.Id);
-            var embed = _pluginConfig.PortraitEditor.EmbedPresetStringInThumbnails ? request.PresetCode : null;
+            var embed = request.PresetCode;
 
             _ = Task.Run(() =>
             {
                 var temp = path + ".tmp";
                 try
                 {
+                    // the game draws the background separately; put it under the character so the saved image matches the plate
+                    using var withBackground = AddBackground(image, request.BannerBg);
+
                     // write next to the target and swap it in, so a thumbnail being read never blocks the save
-                    image.SaveAsPng(temp, embed);
+                    (withBackground ?? image).SaveAsPng(temp, embed);
                     File.Move(temp, path, overwrite: true);
                     _thumbnails.Invalidate(request.Id);
 

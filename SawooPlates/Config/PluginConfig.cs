@@ -15,7 +15,7 @@ namespace SawooPlates.Config;
 /// </summary>
 public class PluginConfig : IPluginConfiguration
 {
-    public const int CurrentVersion = 4;
+    public const int CurrentVersion = 5;
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -98,6 +98,19 @@ public class PluginConfig : IPluginConfiguration
                 }
 
                 version = 4;
+            }
+
+            // 5: fewer settings; each new one keeps what the old ones had turned on
+            if (version < 5)
+            {
+                if (json["Capture"] is JsonObject capture)
+                {
+                    bool On(string key) => capture[key]?.GetValue<bool>() ?? true;
+                    capture["KeepInRecent"] = On("AutoCaptureAdventurerPlate") || On("AutoCapturePartyPortraits") || On("AutoCaptureMvpVote");
+                    capture["ShowButtons"] = On("ShowPlateButton") || On("ShowPartyButtons") || On("ContextMenuEntry");
+                }
+
+                version = 5;
             }
 
             json[nameof(Version)] = Math.Max(version, CurrentVersion);

@@ -43,7 +43,7 @@ public sealed unsafe class PartyCaptureBar : Window
 
     public override bool DrawConditions()
     {
-        if (!_captureService.Settings.ShowPartyButtons)
+        if (!_captureService.Settings.ShowButtons)
             return false;
 
         foreach (var source in new[] { CaptureSource.MvpVote, CaptureSource.PartyPortrait })

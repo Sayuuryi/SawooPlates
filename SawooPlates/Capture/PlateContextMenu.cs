@@ -38,7 +38,7 @@ public sealed class PlateContextMenu : IDisposable
 
     private void OnMenuOpened(IMenuOpenedArgs args)
     {
-        if (!_captureService.Settings.ContextMenuEntry)
+        if (!_captureService.Settings.ShowButtons)
             return;
 
         if (args.Target is not MenuTargetDefault target || target.TargetContentId == 0)

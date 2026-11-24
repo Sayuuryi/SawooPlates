@@ -47,24 +47,10 @@ public sealed class SettingsTab(
         var settings = pluginConfig.Capture;
         var changed = false;
 
-        if (Group("Capture", FontAwesomeIcon.IdCard))
-        {
-            changed |= DrawOwnBool("AutoCaptureAdventurerPlate", ref settings.AutoCaptureAdventurerPlate);
-            changed |= DrawOwnBool("AutoCapturePartyPortraits", ref settings.AutoCapturePartyPortraits);
-            changed |= DrawOwnBool("AutoCaptureMvpVote", ref settings.AutoCaptureMvpVote);
-            changed |= DrawOwnBool("SkipOwnCharacter", ref settings.SkipOwnCharacter);
-        }
-
-        if (Group("Buttons and menus", FontAwesomeIcon.MousePointer))
-        {
-            changed |= DrawOwnBool("ShowPlateButton", ref settings.ShowPlateButton);
-            changed |= DrawOwnBool("ShowPartyButtons", ref settings.ShowPartyButtons);
-            changed |= DrawOwnBool("ContextMenuEntry", ref settings.ContextMenuEntry);
-        }
-
         if (Group("Recent", FontAwesomeIcon.History))
         {
-            changed |= DrawOwnBool("DedupePerPlayer", ref settings.DedupePerPlayer);
+            changed |= DrawOwnBool("KeepInRecent", ref settings.KeepInRecent);
+            changed |= DrawOwnBool("ShowButtons", ref settings.ShowButtons);
 
             ImGui.Spacing();
             ImGui.TextUnformatted(textService.Translate("SawooPlates.Settings.MaxHistorySize.Label"));
@@ -77,12 +63,6 @@ public sealed class SettingsTab(
             }
 
             ImGui.Spacing();
-        }
-
-        if (Group("Notifications", FontAwesomeIcon.Bell))
-        {
-            changed |= DrawOwnBool("NotifyOnCapture", ref settings.NotifyOnCapture);
-            changed |= DrawOwnBool("NotifyOnCopy", ref settings.NotifyOnCopy);
         }
 
         return changed;
@@ -103,13 +83,11 @@ public sealed class SettingsTab(
                 serviceProvider.GetRequiredService<PortraitEditorModule>().RefreshMenuBar();
             }
 
-            changed |= DrawBool("EmbedPresetStringInThumbnails", ref config.EmbedPresetStringInThumbnails);
-
             if (presetImporter.SourceExists)
             {
                 ImGui.Spacing();
                 if (Ui.Button(FontAwesomeIcon.FileImport, $"Import presets from {PresetImporter.SourcePlugin}",
-                        tooltip: "Copies presets, tags and thumbnails. Presets you already have are skipped."))
+                        tooltip: "Copies presets, tags and thumbnails. Presets you already have are skipped.\nNothing is changed or deleted on either side, and a backup is saved first."))
                 {
                     try
                     {
@@ -140,8 +118,6 @@ public sealed class SettingsTab(
                 using var indent = ImRaii.PushIndent();
                 changed |= DrawBool("IgnoreDoHDoL", ref config.IgnoreDoHDoL);
             });
-            changed |= DrawBool("ReequipGearsetOnUpdate", ref config.ReequipGearsetOnUpdate, drawAfterLabel: DrawNetworkWarning);
-            changed |= DrawBool("AutoUpdatePotraitOnGearUpdate", ref config.AutoUpdatePotraitOnGearUpdate, drawAfterLabel: DrawNetworkWarning);
         }
 
         return changed;
@@ -228,15 +204,4 @@ public sealed class SettingsTab(
         return result;
     }
 
-    private void DrawNetworkWarning()
-    {
-        ImGui.SameLine();
-        ImGuiUtils.Icon(FontAwesomeIcon.Bolt, Color.Yellow.ToUInt());
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.BeginTooltip();
-            ImGui.Text(textService.Translate("Common.Config.NetworkRequestWarning"));
-            ImGui.EndTooltip();
-        }
-    }
 }

@@ -52,15 +52,12 @@ public sealed unsafe class CharaCardSource : IDisposable
 
     private void OnPlateShown(AddonEvent type, AddonArgs args)
     {
-        if (!_captureService.Settings.AutoCaptureAdventurerPlate)
+        if (!_captureService.Settings.KeepInRecent)
             return;
 
         // give the agent a moment to finish filling its data
         _ = _framework.RunOnTick(() => TryCapture(manual: false), TimeSpan.FromMilliseconds(250));
     }
-
-    /// <summary>True when an Adventurer Plate is open and its data can be read.</summary>
-    public bool IsPlateOpen => AddonUtil.IsAddonOpen(AddonName) && TryRead(out _);
 
     /// <summary>Content id of the plate that is open right now, or 0.</summary>
     public ulong OpenPlateContentId
@@ -80,7 +77,7 @@ public sealed unsafe class CharaCardSource : IDisposable
             if (!AddonUtil.IsAddonOpen(AddonName) || !TryRead(out var capture))
                 return null;
 
-            if (!manual && _captureService.Settings.SkipOwnCharacter && capture.ContentId != 0 && capture.ContentId == _playerState.ContentId)
+            if (!manual && capture.ContentId != 0 && capture.ContentId == _playerState.ContentId)
                 return null;
 
             var contentId = capture.ContentId;

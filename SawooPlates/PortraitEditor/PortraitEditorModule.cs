@@ -1,8 +1,6 @@
 using System.Threading;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
-using Dalamud.Game.Agent;
-using Dalamud.Game.Agent.AgentArgTypes;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Hooking;
@@ -15,7 +13,6 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using SawooPlates.Config;
 using SawooPlates.PortraitEditor.Windows;
-using DAgentId = Dalamud.Game.Agent.AgentId;
 using GameAgentId = FFXIVClientStructs.FFXIV.Client.UI.Agent.AgentId;
 
 namespace SawooPlates.PortraitEditor;
@@ -28,7 +25,6 @@ public sealed unsafe class PortraitEditorModule : IDisposable
     private readonly IChatGui _chatGui;
     private readonly TextService _textService;
     private readonly ExcelService _excelService;
-    private readonly IAgentLifecycle _agentLifecycle;
     private readonly IAddonLifecycle _addonLifecycle;
     private readonly IFramework _framework;
     private readonly IClientState _clientState;
@@ -41,7 +37,6 @@ public sealed unsafe class PortraitEditorModule : IDisposable
     private Hook<RaptureGearsetModule.Delegates.UpdateGearset>? _updateGearsetHook;
     private Hook<UpdateGearVisibilityDelegate>? _updateGearVisibility;
     private bool _wasBoundByDuty;
-    private bool _blockBannerPreview;
     private bool _classJobChanged;
 
     private delegate void UpdateGearVisibilityDelegate(uint entityId, nint packet);
@@ -54,7 +49,6 @@ public sealed unsafe class PortraitEditorModule : IDisposable
         TextService textService,
         ExcelService excelService,
         IGameInteropProvider gameInteropProvider,
-        IAgentLifecycle agentLifecycle,
         IAddonLifecycle addonLifecycle,
         IFramework framework,
         IClientState clientState,
@@ -65,7 +59,6 @@ public sealed unsafe class PortraitEditorModule : IDisposable
         _chatGui = chatGui;
         _textService = textService;
         _excelService = excelService;
-        _agentLifecycle = agentLifecycle;
         _addonLifecycle = addonLifecycle;
         _framework = framework;
         _clientState = clientState;
@@ -92,7 +85,6 @@ public sealed unsafe class PortraitEditorModule : IDisposable
                 _logger.Warning(ex, "Could not hook UpdateGearVisibility");
             }
 
-            _agentLifecycle.RegisterListener(AgentEvent.PreShow, (DAgentId)(uint)GameAgentId.BannerPreview, OnBannerPreviewPreShow);
             _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "BannerEditor", OnBannerEditorSetup);
             _addonLifecycle.RegisterListener(AddonEvent.PreFinalize, "BannerEditor", OnBannerEditorFinalize);
 
@@ -108,7 +100,6 @@ public sealed unsafe class PortraitEditorModule : IDisposable
 
     public void Dispose()
     {
-        _agentLifecycle.UnregisterListener(AgentEvent.PreShow, (DAgentId)(uint)GameAgentId.BannerPreview, OnBannerPreviewPreShow);
         _addonLifecycle.UnregisterListener(AddonEvent.PostSetup, "BannerEditor", OnBannerEditorSetup);
         _addonLifecycle.UnregisterListener(AddonEvent.PreFinalize, "BannerEditor", OnBannerEditorFinalize);
 
@@ -182,9 +173,6 @@ public sealed unsafe class PortraitEditorModule : IDisposable
 
     private int UpdateGearsetDetour(RaptureGearsetModule* raptureGearsetModule, int gearsetId)
     {
-        if (Config.AutoUpdatePotraitOnGearUpdate)
-            _blockBannerPreview = true;
-
         _logger.Verbose("[UpdateGearsetDetour] Changed to {gearsetId}", gearsetId);
 
         var ret = _updateGearsetHook!.Original(raptureGearsetModule, gearsetId);
@@ -204,18 +192,6 @@ public sealed unsafe class PortraitEditorModule : IDisposable
         _logger.Verbose("[UpdateGearVisibilityDetour] Updated LocalPlayer's gear visibility after Class/Job change");
 
         RestartCheck();
-    }
-
-    private void OnBannerPreviewPreShow(AgentEvent type, AgentArgs args)
-    {
-        var blockBannerPreview = _blockBannerPreview;
-        _blockBannerPreview = false;
-
-        if (Config.AutoUpdatePotraitOnGearUpdate && blockBannerPreview)
-        {
-            _logger.Verbose("[OnBannerPreviewPreShow] Suppressed!");
-            args.PreventOriginal();
-        }
     }
 
     private void OnClassJobChange(uint classJobId)
@@ -271,60 +247,13 @@ public sealed unsafe class PortraitEditorModule : IDisposable
             return;
 
         var checksum = UIGlobals.GenerateEquippedItemsChecksum();
-        var classJobChanged = Interlocked.Exchange(ref _classJobChanged, false);
+        Interlocked.Exchange(ref _classJobChanged, false);
 
         if (banner->Checksum == checksum)
-        {
-            _logger.Information("Gear checksum matches! (Portrait: {bannerChecksum:X}, Equipped: {checksum:X})", banner->Checksum, checksum);
             return;
-        }
 
-        _logger.Information("Gear checksum mismatch detected! (Portrait: {bannerChecksum:X}, Equipped: {checksum:X}, ClassJobChanged = {classJobChanged})", banner->Checksum, checksum, classJobChanged);
-
-        if (!classJobChanged && Config.ReequipGearsetOnUpdate && gearset->GlamourSetLink > 0 && UIGlobals.CanApplyGlamourPlates())
-        {
-            _logger.Information("Re-equipping Gearset #{gearsetId} to reapply glamour plate", gearset->Id + 1);
-            raptureGearsetModule->EquipGearset(gearset->Id, gearset->GlamourSetLink);
-            RecheckGearChecksum(banner);
-        }
-        else if (!classJobChanged && Config.AutoUpdatePotraitOnGearUpdate && gearset->GlamourSetLink == 0)
-        {
-            _logger.Information("Trying to send portrait update...");
-
-            if (SendPortraitUpdate(banner))
-            {
-                RecheckGearChecksum(banner);
-            }
-            else
-            {
-                AgentBannerPreview.Instance()->Show();
-            }
-        }
-        else if (Config.NotifyGearChecksumMismatch)
-        {
+        if (Config.NotifyGearChecksumMismatch)
             NotifyMismatch();
-        }
-    }
-
-    private void RecheckGearChecksum(BannerModuleEntry* banner)
-    {
-        _mismatchCheckCTS?.Cancel();
-        _mismatchCheckCTS = new();
-
-        _ = _framework.RunOnTick(() =>
-        {
-            var checksum = UIGlobals.GenerateEquippedItemsChecksum();
-
-            if (banner->Checksum != checksum)
-            {
-                _logger.Information("Gear checksum still mismatching (Portrait: {bannerChecksum:X}, Equipped: {equippedChecksum:X})", banner->Checksum, checksum);
-                NotifyMismatch();
-            }
-            else
-            {
-                _logger.Information("Gear checksum matches now (Portrait: {bannerChecksum:X}, Equipped: {equippedChecksum:X})", banner->Checksum, checksum);
-            }
-        }, delay: CheckDelay, cancellationToken: _mismatchCheckCTS.Token);
     }
 
     private void NotifyMismatch()
@@ -351,82 +280,5 @@ public sealed unsafe class PortraitEditorModule : IDisposable
         _chatGui.PrintError(sb.Build());
     }
 
-    private bool SendPortraitUpdate(BannerModuleEntry* banner)
-    {
-        var raptureGearsetModule = RaptureGearsetModule.Instance();
 
-        var gearsetId = raptureGearsetModule->CurrentGearsetIndex;
-        if (!raptureGearsetModule->IsValidGearset(gearsetId))
-        {
-            _logger.Warning("No Portrait Update: Gearset invalid");
-            return false;
-        }
-
-        var gearset = raptureGearsetModule->GetGearset(gearsetId);
-        if (gearset == null)
-        {
-            _logger.Warning("No Portrait Update: Gearset is null");
-            return false;
-        }
-
-        var bannerIndex = gearset->BannerIndex;
-        if (bannerIndex == 0) // no banner linked
-        {
-            _logger.Information("No Portrait Update: Gearset not linked to Banner");
-            return false;
-        }
-
-        if (banner->BannerIndex != bannerIndex - 1)
-        {
-            _logger.Warning("No Portrait Update: Banner index mismatch (Banner: {bannerIndex}, Gearset Banner Link: {gearsetBannerIndex})", banner->BannerIndex, bannerIndex - 1);
-            return false;
-        }
-
-        var currentChecksum = UIGlobals.GenerateEquippedItemsChecksum();
-        if (banner->Checksum == currentChecksum)
-        {
-            _logger.Information("No Portrait Update: Checksum still matches");
-            return false;
-        }
-
-        var localPlayer = (Character*)Control.GetLocalPlayer();
-        if (localPlayer == null)
-        {
-            _logger.Warning("No Portrait Update: LocalPlayer is null");
-            return false;
-        }
-
-        var helper = UIModule.Instance()->GetUIModuleHelpers()->BannerHelper;
-        if (!helper->BannerModuleEntry_IsCurrentCharaCardBannerOutdated(banner, true))
-        {
-            _logger.Warning("No Portrait Update: Banner expired");
-            return false;
-        }
-
-        if (!helper->BannerModuleEntry_IsCharacterDataOutdated(banner, true))
-        {
-            _logger.Warning("No Portrait Update: Banner character data expired");
-            return false;
-        }
-
-        // update Banner
-        banner->LastUpdated = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        banner->Checksum = currentChecksum;
-        helper->BannerModuleEntry_ApplyRaceGenderHeightTribe(banner, localPlayer);
-        BannerModule.Instance()->UserFileEvent.HasChanges = true;
-
-        var bannerData = new BannerData();
-        helper->BannerData_ApplyBannerModuleEntry(&bannerData, banner);
-        var result = helper->SendBannerData(&bannerData);
-        if (result)
-        {
-            _logger.Information("Portrait Update sent");
-        }
-        else
-        {
-            _logger.Warning("Portrait Update failed to send");
-        }
-
-        return result;
-    }
 }

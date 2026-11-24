@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.9.8.0]
+
+### Presets
+- Portraits keep their real background (it showed a flat colour before); open a plate again to refresh an older one
+- "Missing" counts only portrait and plate parts; gear you don't have is listed separately
+- Camera and lighting labels are no longer cut off
+
+### Settings
+- Fewer, clearer settings: keep portraits in Recent, show buttons, Recent size, Portrait Editor menu bar and the gear warning
+- Removed automatic gearset re-equip and automatic portrait updates
+
+### Backups
+- Settings, presets and Recent are backed up at every start and before importing presets (last 10 kept, in the Backups folder)
+- Importing never changes or deletes anything on either side
+
 ## [0.9.7.0]
 
 ### Presets

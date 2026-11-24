@@ -40,35 +40,6 @@ public static unsafe class PortraitPresetExtensions
         return true;
     }
 
-    public static bool WriteExportedPortraitData(this PortraitPresetData preset, ExportedPortraitData* portraitData)
-    {
-        if (portraitData == null)
-            return false;
-
-        portraitData->CameraPosition = preset.CameraPosition.ToGame();
-        portraitData->CameraTarget = preset.CameraTarget.ToGame();
-        portraitData->ImageRotation = preset.ImageRotation;
-        portraitData->CameraZoom = preset.CameraZoom;
-        portraitData->BannerTimeline = preset.BannerTimeline;
-        portraitData->AnimationProgress = preset.AnimationProgress;
-        portraitData->Expression = preset.Expression;
-        portraitData->HeadDirection = preset.HeadDirection.ToGame();
-        portraitData->EyeDirection = preset.EyeDirection.ToGame();
-        portraitData->DirectionalLightingColorRed = preset.DirectionalLightingColorRed;
-        portraitData->DirectionalLightingColorGreen = preset.DirectionalLightingColorGreen;
-        portraitData->DirectionalLightingColorBlue = preset.DirectionalLightingColorBlue;
-        portraitData->DirectionalLightingBrightness = preset.DirectionalLightingBrightness;
-        portraitData->DirectionalLightingVerticalAngle = preset.DirectionalLightingVerticalAngle;
-        portraitData->DirectionalLightingHorizontalAngle = preset.DirectionalLightingHorizontalAngle;
-        portraitData->AmbientLightingColorRed = preset.AmbientLightingColorRed;
-        portraitData->AmbientLightingColorGreen = preset.AmbientLightingColorGreen;
-        portraitData->AmbientLightingColorBlue = preset.AmbientLightingColorBlue;
-        portraitData->AmbientLightingBrightness = preset.AmbientLightingBrightness;
-        portraitData->BannerBg = preset.BannerBg;
-
-        return true;
-    }
-
     /// <summary>Reads the current portrait from the open Portrait Editor.</summary>
     public static PortraitPresetData FromState()
     {

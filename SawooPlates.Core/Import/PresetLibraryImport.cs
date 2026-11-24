@@ -10,7 +10,6 @@ namespace SawooPlates.Core.Import;
 /// </summary>
 public sealed class PresetLibraryFile
 {
-    public const int KnownConfigVersion = 9;
 
     private static readonly JsonSerializerOptions SerializerOptions = new() { IncludeFields = true };
 

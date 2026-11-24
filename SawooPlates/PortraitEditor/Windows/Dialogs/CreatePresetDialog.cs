@@ -141,7 +141,7 @@ public class CreatePresetDialog
                         var guid = Guid.CreateVersion7();
                         var thumbPath = _thumbnailService.GetPortraitThumbnailPath(guid);
 
-                        _image.SaveAsPng(thumbPath, _pluginConfig.PortraitEditor.EmbedPresetStringInThumbnails ? _preset.ToExportedString() : null);
+                        _image.SaveAsPng(thumbPath, _preset.ToExportedString());
 
                         _pluginConfig.PortraitEditor.Presets.Insert(0, new(guid, name.Trim(), _preset, _tags));
                         _pluginConfig.Save();

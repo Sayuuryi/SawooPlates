@@ -249,7 +249,7 @@ public sealed class RecentTab(
             var missing = plateItems.CountMissing(entry, entry.Preset, entry.FrameKnown, entry.DecorationKnown);
             ImGui.Spacing();
             if (missing > 0)
-                ImGui.TextColored(Ui.Bad, missing == 1 ? "You're missing 1 thing" : $"You're missing {missing} things");
+                ImGui.TextColored(Ui.Bad, missing == 1 ? "You're missing 1 part" : $"You're missing {missing} parts");
             else
                 ImGui.TextColored(Ui.Good, "You have everything");
         }
@@ -312,13 +312,27 @@ public sealed class RecentTab(
         {
             Ui.Icon(FontAwesomeIcon.ExclamationCircle, Ui.Bad);
             ImGui.SameLine();
-            ImGui.TextUnformatted(missing == 1 ? "You're missing 1 thing on this plate." : $"You're missing {missing} things on this plate.");
+            ImGui.TextUnformatted(missing == 1 ? "You're missing 1 part of this plate." : $"You're missing {missing} parts of this plate.");
         }
         else
         {
             Ui.Icon(FontAwesomeIcon.CheckCircle, Ui.Good);
             ImGui.SameLine();
-            ImGui.TextUnformatted("You have everything on this plate that can be checked.");
+            ImGui.TextUnformatted("You have every part of this plate.");
+        }
+
+        // gear is only a heads-up: it doesn't stop the plate from being applied
+        var missingGear = plateItems.GetMissingGear(capture);
+        if (missingGear.Count > 0)
+        {
+            Ui.Icon(FontAwesomeIcon.Tshirt, Ui.Warn);
+            ImGui.SameLine();
+            ImGui.TextUnformatted(missingGear.Count == 1 ? "1 gear piece isn't in your collection." : $"{missingGear.Count} gear pieces aren't in your collection.");
+            if (ImGui.IsItemHovered())
+            {
+                using var tip = ImRaii.Tooltip();
+                plateItems.DrawMissingList(missingGear, "Not found in your inventory, armoury, glamour dresser or armoire:");
+            }
         }
 
         if (!capture.FrameKnown || !capture.DecorationKnown)

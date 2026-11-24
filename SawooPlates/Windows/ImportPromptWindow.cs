@@ -15,6 +15,7 @@ public sealed class ImportPromptWindow : Window, IDisposable
 
     private int _newCount;
     private string? _result;
+    private bool _failed;
     private bool _checked;
 
     public ImportPromptWindow(IFramework framework, IClientState clientState, IPluginLog log, PluginConfig pluginConfig, PresetImporter importer)
@@ -51,6 +52,7 @@ public sealed class ImportPromptWindow : Window, IDisposable
             if (_newCount > 0)
             {
                 _result = null;
+                _failed = false;
                 IsOpen = true;
             }
         }, TimeSpan.FromSeconds(8));
@@ -67,7 +69,7 @@ public sealed class ImportPromptWindow : Window, IDisposable
 
         if (_result != null)
         {
-            Ui.Icon(FontAwesomeIcon.CheckCircle, Ui.Good);
+            Ui.Icon(_failed ? FontAwesomeIcon.ExclamationCircle : FontAwesomeIcon.CheckCircle, _failed ? Ui.Bad : Ui.Good);
             ImGui.SameLine();
             ImGui.TextUnformatted(_result);
             ImGui.Spacing();
@@ -81,7 +83,7 @@ public sealed class ImportPromptWindow : Window, IDisposable
         ImGui.TextUnformatted(_newCount == 1
             ? $"You have 1 portrait preset saved in {PresetImporter.SourcePlugin}. Copy it into Sawoo Plates?"
             : $"You have {_newCount} portrait presets saved in {PresetImporter.SourcePlugin}. Copy them into Sawoo Plates?");
-        ImGui.TextColored(Ui.Dim, $"Tags and thumbnails come along. {PresetImporter.SourcePlugin} itself isn't changed.");
+        ImGui.TextColored(Ui.Dim, "Tags and thumbnails come too. Nothing is changed or deleted on either side, and a backup is saved first.");
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -98,6 +100,7 @@ public sealed class ImportPromptWindow : Window, IDisposable
             {
                 _log.Error(ex, "Import failed");
                 _result = $"Couldn't import: {ex.Message}";
+                _failed = true;
             }
 
             _pluginConfig.PresetImportOffered = true;

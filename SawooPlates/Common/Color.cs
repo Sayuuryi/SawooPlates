@@ -36,11 +36,6 @@ public struct Color(float r, float g, float b, float a = 1)
     public float B = b;
     public float A = a;
 
-    public readonly float Luminance => 0.299f * R + 0.587f * G + 0.114f * B;
-
-    public readonly Color LerpTo(Color colorB, float fraction)
-        => Lerp(this, colorB, fraction);
-
     public static Color Lerp(Color colorA, Color colorB, float fraction)
     {
         return new Color(
@@ -57,16 +52,6 @@ public struct Color(float r, float g, float b, float a = 1)
             ColorFormat.BGRA => new() { B = vec.X, G = vec.Y, R = vec.Z, A = vec.W },
             ColorFormat.ARGB => new() { A = vec.X, R = vec.Y, G = vec.Z, B = vec.W },
             ColorFormat.ABGR => new() { A = vec.X, B = vec.Y, G = vec.Z, R = vec.W },
-            _ => throw new ArgumentOutOfRangeException(nameof(format))
-        };
-
-    public static Color FromUInt(uint value, ColorFormat format = ColorFormat.RGBA)
-        => format switch
-        {
-            ColorFormat.RGBA => FromRGBA(value),
-            ColorFormat.BGRA => FromBGRA(value),
-            ColorFormat.ARGB => FromARGB(value),
-            ColorFormat.ABGR => FromABGR(value),
             _ => throw new ArgumentOutOfRangeException(nameof(format))
         };
 
@@ -144,26 +129,6 @@ public struct Color(float r, float g, float b, float a = 1)
         return (h, s, v);
     }
 
-    public float Hue
-    {
-        readonly get => ToHSV().H;
-        set
-        {
-            var (_, s, v) = ToHSV();
-            ImGui.ColorConvertHSVtoRGB(value, s, v, ref R, ref G, ref B);
-        }
-    }
-
-    public float Saturation
-    {
-        readonly get => ToHSV().S;
-        set
-        {
-            var (h, _, v) = ToHSV();
-            ImGui.ColorConvertHSVtoRGB(h, value, v, ref R, ref G, ref B);
-        }
-    }
-
     public float Brightness // aka. Value
     {
         readonly get => ToHSV().V;
@@ -174,40 +139,17 @@ public struct Color(float r, float g, float b, float a = 1)
         }
     }
 
-    public readonly Color Shade(float factor)
-    {
-        var (h, s, v) = ToHSV();
-        return FromHSV(h, s, Math.Clamp(v * factor, 0f, 1f));
-    }
-
     #endregion
 
     #region Presets
 
-    public static Color Transparent { get; } = new();
     public static Color White { get; } = new(1, 1, 1);
     public static Color Black { get; } = new(0, 0, 0);
 
-    public static Color Red { get; } = new(1, 0, 0);
-    public static Color Green { get; } = new(0, 1, 0);
-    public static Color Blue { get; } = new(0, 0, 1);
-    public static Color Cyan { get; } = new(0, 1, 1);
-    public static Color Magenta { get; } = new(1, 0, 1);
-    public static Color Yellow { get; } = new(1, 1, 0);
-
-    public static Color Orange { get; } = new(1, 0.6f, 0);
     public static Color Gold { get; } = new(0.847f, 0.733f, 0.49f);
 
     public static Color Text => From(ImGuiCol.Text);
-    public static Color Text900 => From(ImGuiCol.Text) with { A = 0.9f };
-    public static Color Text800 => From(ImGuiCol.Text) with { A = 0.8f };
     public static Color Text700 => From(ImGuiCol.Text) with { A = 0.7f };
-    public static Color Text600 => From(ImGuiCol.Text) with { A = 0.6f };
-    public static Color Text500 => From(ImGuiCol.Text) with { A = 0.5f };
-    public static Color Text400 => From(ImGuiCol.Text) with { A = 0.4f };
-    public static Color Text300 => From(ImGuiCol.Text) with { A = 0.3f };
-    public static Color Text200 => From(ImGuiCol.Text) with { A = 0.2f };
-    public static Color Text100 => From(ImGuiCol.Text) with { A = 0.1f };
 
     #endregion
 

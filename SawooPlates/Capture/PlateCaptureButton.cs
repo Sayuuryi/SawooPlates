@@ -43,7 +43,7 @@ public sealed unsafe class PlateCaptureButton : Window
 
     public override bool DrawConditions()
     {
-        if (!_captureService.Settings.ShowPlateButton)
+        if (!_captureService.Settings.ShowButtons)
             return false;
 
         var addon = AddonUtil.GetAddon<AtkUnitBase>(CharaCardSource.AddonName);

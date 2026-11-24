@@ -61,13 +61,13 @@ public sealed unsafe class BannerPartySource : IDisposable
 
     private void OnPartyShown(AgentEvent type, AgentArgs args)
     {
-        if (_captureService.Settings.AutoCapturePartyPortraits)
+        if (_captureService.Settings.KeepInRecent)
             ScheduleReads(CaptureSource.PartyPortrait);
     }
 
     private void OnMvpShown(AgentEvent type, AgentArgs args)
     {
-        if (_captureService.Settings.AutoCaptureMvpVote)
+        if (_captureService.Settings.KeepInRecent)
             ScheduleReads(CaptureSource.MvpVote);
     }
 
@@ -147,7 +147,7 @@ public sealed unsafe class BannerPartySource : IDisposable
                 return null;
 
             var worldId = (ushort)character.WorldId;
-            if (!manual && _captureService.Settings.SkipOwnCharacter && IsLocalPlayer(name, worldId))
+            if (!manual && IsLocalPlayer(name, worldId))
                 return null;
 
             var charaView = (CharaViewPortrait*)Unsafe.AsPointer(ref character.CharaView);

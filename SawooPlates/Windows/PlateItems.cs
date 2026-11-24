@@ -30,13 +30,13 @@ public sealed class PlateItems(
             .ToList();
 
     /// <summary>Small list of missing things for a tooltip: icon, name, kind.</summary>
-    public void DrawMissingList(IReadOnlyList<PartInfo> missing)
+    public void DrawMissingList(IReadOnlyList<PartInfo> missing, string? title = null)
     {
         if (missing.Count == 0)
             return;
 
         ImGui.Spacing();
-        ImGui.TextColored(Ui.Bad, missing.Count == 1 ? "You're missing 1 part:" : $"You're missing {missing.Count} parts:");
+        ImGui.TextColored(Ui.Bad, title ?? (missing.Count == 1 ? "You're missing 1 part:" : $"You're missing {missing.Count} parts:"));
         var size = ImGui.GetTextLineHeight();
         foreach (var part in missing)
         {
@@ -54,9 +54,13 @@ public sealed class PlateItems(
         public int Missing => Rows.Count(r => r.Own.State == OwnState.Missing);
     }
 
-    /// <summary>Number of known-missing things, for the summary line.</summary>
+    /// <summary>Missing portrait and plate parts. Gear is counted separately (see <see cref="GetMissingGear"/>).</summary>
     public int CountMissing(CapturedPortrait? capture, PortraitPresetData preset, bool frameKnown, bool decorationKnown)
-        => BuildGroups(capture, preset, frameKnown, decorationKnown).Sum(g => g.Missing);
+        => BuildGroups(capture, preset, frameKnown, decorationKnown).Where(g => g.Title != "Gear").Sum(g => g.Missing);
+
+    /// <summary>Gear shown in the portrait that isn't in your inventory, armoury, dresser or armoire.</summary>
+    public List<PartInfo> GetMissingGear(CapturedPortrait capture)
+        => GetParts(capture, capture.Preset, "Gear").Where(p => p.Own.State == OwnState.Missing).ToList();
 
     public void Draw(CapturedPortrait? capture, PortraitPresetData preset, bool frameKnown = true, bool decorationKnown = true, bool gearPending = false, bool showGearNote = true)
     {

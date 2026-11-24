@@ -47,27 +47,41 @@ public sealed class PresetDetailPanel(
     /// <summary>Camera, animation and lighting values (the parts are listed by PlateItems).</summary>
     public void DrawValues(PortraitPresetData preset)
     {
+        var brightness = textService.GetAddonText(14694).OrDefault("Brightness");
+        var animation = textService.Translate("EditorWindows.Setting.AnimationTimestamp.Label");
+        var zoom = textService.GetAddonText(14711).OrDefault("Zoom");
+        var rotation = textService.GetAddonText(14712).OrDefault("Rotation");
+        var position = textService.GetAddonText(5972).OrDefault("Camera Position");
+        var target = textService.Translate("EditorWindows.Setting.CameraTarget.Label");
+        var head = textService.Translate("EditorWindows.Setting.HeadDirection.Label");
+        var eyes = textService.Translate("EditorWindows.Setting.EyeDirection.Label");
+        var ambient = textService.GetAddonText(14692).OrDefault("Ambient Lighting");
+        var directional = textService.GetAddonText(14693).OrDefault("Directional Lighting");
+
+        // label column as wide as the longest label, so nothing gets cut
+        var labelWidth = new[] { animation, zoom, rotation, position, target, head, eyes, ambient, directional }
+            .Max(label => ImGui.CalcTextSize(label).X) + ImGui.GetStyle().CellPadding.X * 2;
+
         using var table = ImRaii.Table("##PresetValues", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.RowBg);
         if (!table)
             return;
 
-        ImGui.TableSetupColumn("Label", ImGuiTableColumnFlags.WidthFixed, 130 * ImStyle.Scale);
+        ImGui.TableSetupColumn("Label", ImGuiTableColumnFlags.WidthFixed, labelWidth);
         ImGui.TableSetupColumn("Value", ImGuiTableColumnFlags.WidthStretch);
 
-        Row(textService.Translate("EditorWindows.Setting.AnimationTimestamp.Label"), preset.AnimationProgress.ToString("0.000"));
-        Row(textService.GetAddonText(14711).OrDefault("Zoom"), preset.CameraZoom.ToString());
-        Row(textService.GetAddonText(14712).OrDefault("Rotation"), preset.ImageRotation.ToString());
-        Row(textService.GetAddonText(5972).OrDefault("Camera Position"), Format(preset.CameraPosition));
-        Row(textService.Translate("EditorWindows.Setting.CameraTarget.Label"), Format(preset.CameraTarget));
-        Row(textService.Translate("EditorWindows.Setting.HeadDirection.Label"), Format(preset.HeadDirection));
-        Row(textService.Translate("EditorWindows.Setting.EyeDirection.Label"), Format(preset.EyeDirection));
+        Row(animation, preset.AnimationProgress.ToString("0.000"));
+        Row(zoom, preset.CameraZoom.ToString());
+        Row(rotation, preset.ImageRotation.ToString());
+        Row(position, Format(preset.CameraPosition));
+        Row(target, Format(preset.CameraTarget));
+        Row(head, Format(preset.HeadDirection));
+        Row(eyes, Format(preset.EyeDirection));
 
-        var brightness = textService.GetAddonText(14694).OrDefault("Brightness");
-        ColorRow(textService.GetAddonText(14692).OrDefault("Ambient Lighting"),
+        ColorRow(ambient,
             preset.AmbientLightingColorRed, preset.AmbientLightingColorGreen, preset.AmbientLightingColorBlue,
             $"{brightness} {preset.AmbientLightingBrightness}");
 
-        ColorRow(textService.GetAddonText(14693).OrDefault("Directional Lighting"),
+        ColorRow(directional,
             preset.DirectionalLightingColorRed, preset.DirectionalLightingColorGreen, preset.DirectionalLightingColorBlue,
             $"{brightness} {preset.DirectionalLightingBrightness}, {textService.GetAddonText(14696).OrDefault("Vertical Angle")} {preset.DirectionalLightingVerticalAngle}, {textService.GetAddonText(14695).OrDefault("Horizontal Angle")} {preset.DirectionalLightingHorizontalAngle}");
     }

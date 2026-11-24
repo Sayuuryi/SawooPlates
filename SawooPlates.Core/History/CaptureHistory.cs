@@ -90,16 +90,6 @@ public sealed class CaptureHistory
             return _entries.RemoveAll(e => e.Id == id) > 0;
     }
 
-    public void Replace(CapturedPortrait entry)
-    {
-        lock (_lock)
-        {
-            var index = _entries.FindIndex(e => e.Id == entry.Id);
-            if (index >= 0)
-                _entries[index] = entry;
-        }
-    }
-
     public IReadOnlyList<CapturedPortrait> Trim(int maxSize)
     {
         lock (_lock)

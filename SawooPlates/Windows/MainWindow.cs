@@ -38,13 +38,6 @@ public sealed class MainWindow : Window
         BringToFront();
     }
 
-    /// <summary>Opens Recent with one portrait selected.</summary>
-    public void ShowCapture(Guid id)
-    {
-        _recentTab.Select(id);
-        Open(Tab.Recent);
-    }
-
     /// <summary>Opens Presets with one preset selected.</summary>
     public void ShowPreset(Guid id)
     {

@@ -5,12 +5,6 @@
   "Editor.Config.IncompatibilityWarning.Glamourer": {
     "en": "In order for notifications and portrait updates to work properly, please make sure Glamourer is not automatically changing the facewear, the visibility of the weapon, headgear or viera ears or the state of the visor."
   },
-  "Editor.Config.EmbedPresetStringInThumbnails.Label": {
-    "en": "Embed preset codes in thumbnails"
-  },
-  "Editor.Config.EmbedPresetStringInThumbnails.Description": {
-    "en": "The preset code, which is also used for clipboard import/export, is written to the metadata as comment."
-  },
   "Editor.Config.NotifyGearChecksumMismatch.Label": {
     "en": "Notify if appearance and/or gear doesn't match Portait"
   },
@@ -19,18 +13,6 @@
   },
   "Editor.Config.IgnoreDoHDoL.Label": {
     "en": "Do not notify for DoH/DoL jobs"
-  },
-  "Editor.Config.ReequipGearsetOnUpdate.Label": {
-    "en": "Automatically re-equip gear set to re-apply glamour plate"
-  },
-  "Editor.Config.ReequipGearsetOnUpdate.Description": {
-    "en": "Works only if the following criteria are met:\n- The gear set has a glamour plate linked.\n- You are in a place where glamour plates are allowed to be applied.\n- The glamour plate covers the slot(s) that caused the mismatch.\n- The mismatch was not caused by mainhand/headgear visibility or visor state."
-  },
-  "Editor.Config.AutoUpdatePotraitOnGearUpdate.Label": {
-    "en": "Automatically update portrait when the Gearset was updated"
-  },
-  "Editor.Config.AutoUpdatePotraitOnGearUpdate.Description": {
-    "en": "Only works for gear sets that are not linked with a glamour plate."
   },
   "EditorWindows.CreatePresetDialog.Title": {
     "en": "Save as Preset"
@@ -203,9 +185,6 @@
   "EditorWindows.MenuBar.ImportFromClipboard.Label": {
     "en": "Import from Clipboard"
   },
-  "EditorWindows.MenuBar.ImportFromClipboardAllSettings.Label": {
-    "en": "Import from Clipboard (All Settings)"
-  },
   "EditorWindows.MenuBar.ToggleAdvancedImportMode.Label": {
     "en": "Toggle Advanced Import Mode"
   },
@@ -281,12 +260,6 @@
   "Common.Config.SectionTitle.IncompatibilityWarning": {
     "en": "Incompatibility Warning"
   },
-  "Common.Config.SectionTitle.Configuration": {
-    "en": "Configuration"
-  },
-  "Common.Config.NetworkRequestWarning": {
-    "en": "This option automatically sends additional network requests,\nwhich would normally require user interaction.\nAlthough carefully programmed, its use is at your own risk."
-  },
   "AdvancedEditOverlay.Title": {
     "en": "[Sawoo Plates] Advanced Edit"
   },
@@ -302,35 +275,8 @@
   "MenuBar.Title": {
     "en": "Sawoo Plates Menu Bar"
   },
-  "SawooPlates.Capture.Notification.Captured": {
-    "en": "Added {0}'s portrait to Recent."
-  },
   "SawooPlates.ContextMenu.CopyPlatePortrait": {
     "en": "Copy plate portrait"
-  },
-  "SawooPlates.Detail.Apply": {
-    "en": "Apply to my portrait"
-  },
-  "SawooPlates.Detail.Apply.Disabled": {
-    "en": "Open your Portrait Editor first."
-  },
-  "SawooPlates.Detail.CopyCode": {
-    "en": "Copy code"
-  },
-  "SawooPlates.Detail.Delete": {
-    "en": "Delete"
-  },
-  "SawooPlates.Detail.NotStored": {
-    "en": "Not shown on this screen"
-  },
-  "SawooPlates.Detail.PartialCapture": {
-    "en": "This screen doesn't show frames or accents, so only the pose, camera, lighting and background were kept. Applying it leaves your own frame and accent alone."
-  },
-  "SawooPlates.Detail.SaveTagHint": {
-    "en": "Tagged \"{0}\" so it's easy to find later."
-  },
-  "SawooPlates.Detail.SaveToPresets": {
-    "en": "Save to presets"
   },
   "SawooPlates.Notification.CodeCopied": {
     "en": "Preset code copied."
@@ -347,48 +293,6 @@
   "SawooPlates.Notification.SavedAsPreset": {
     "en": "Saved as \"{0}\"."
   },
-  "SawooPlates.PlateButton.Label": {
-    "en": "Copy portrait"
-  },
-  "SawooPlates.PlateButton.Tooltip": {
-    "en": "Keeps this portrait in Recent and copies its preset code."
-  },
-  "SawooPlates.Recent.AllJobs": {
-    "en": "All jobs"
-  },
-  "SawooPlates.Recent.AllSources": {
-    "en": "All sources"
-  },
-  "SawooPlates.Recent.ClearAll.Prompt": {
-    "en": "Remove everything from Recent?"
-  },
-  "SawooPlates.Recent.ClearAll.Tooltip": {
-    "en": "Clear Recent"
-  },
-  "SawooPlates.Recent.Empty": {
-    "en": "Nothing here yet. Open someone's Adventurer Plate and their portrait shows up here."
-  },
-  "SawooPlates.Recent.SearchHint": {
-    "en": "Search names, worlds, jobs"
-  },
-  "SawooPlates.Recent.Sort.Newest": {
-    "en": "Newest"
-  },
-  "SawooPlates.Recent.Sort.Oldest": {
-    "en": "Oldest"
-  },
-  "SawooPlates.Recent.Sort.Name": {
-    "en": "Name"
-  },
-  "SawooPlates.Source.AdventurerPlate": {
-    "en": "Adventurer Plate"
-  },
-  "SawooPlates.Source.PartyPortrait": {
-    "en": "Party portrait"
-  },
-  "SawooPlates.Source.MvpVote": {
-    "en": "MVP vote"
-  },
   "SawooPlates.Settings.Capture.Title": {
     "en": "Capture"
   },
@@ -398,76 +302,25 @@
   "SawooPlates.Settings.MaxHistorySize.Label": {
     "en": "Keep up to this many portraits in Recent"
   },
-  "SawooPlates.Settings.AutoCaptureAdventurerPlate.Label": {
-    "en": "Remember portraits from Adventurer Plates you open"
-  },
-  "SawooPlates.Settings.AutoCaptureAdventurerPlate.Description": {
-    "en": "Only uses what's already on your screen. Nothing is requested from the server."
-  },
-  "SawooPlates.Settings.ShowPlateButton.Label": {
-    "en": "Show a \"Copy portrait\" button above Adventurer Plates"
-  },
-  "SawooPlates.Settings.ContextMenuEntry.Label": {
-    "en": "Add \"Copy plate portrait\" to the right-click menu"
-  },
-  "SawooPlates.Settings.ContextMenuEntry.Description": {
-    "en": "Shows up only for players whose plate you've opened."
-  },
-  "SawooPlates.Settings.SkipOwnCharacter.Label": {
-    "en": "Ignore my own character"
-  },
-  "SawooPlates.Settings.SkipOwnCharacter.Description": {
-    "en": "The \"Copy portrait\" button still works on your own plate."
-  },
-  "SawooPlates.Settings.DedupePerPlayer.Label": {
-    "en": "Don't keep duplicates"
-  },
-  "SawooPlates.Settings.DedupePerPlayer.Description": {
-    "en": "Opening the same plate twice just moves the older entry back to the top."
-  },
-  "SawooPlates.Settings.NotifyOnCapture.Label": {
-    "en": "Show a notification for new portraits in Recent"
-  },
-  "SawooPlates.Settings.NotifyOnCopy.Label": {
-    "en": "Show a notification when a code is copied"
-  },
   "SawooPlates.Settings.EnablePortraitEditorTools.Label": {
     "en": "Show the menu bar in the Portrait Editor"
   },
   "SawooPlates.Settings.EnablePortraitEditorTools.Description": {
     "en": "Turn this off to keep the Portrait Editor as the game made it. Capturing works either way."
   },
-  "SawooPlates.Presets.Empty": {
-    "en": "No presets yet. Save one in the Portrait Editor or from Recent."
-  },
-  "SawooPlates.Presets.SearchHint": {
-    "en": "Search presets"
-  },
-  "SawooPlates.Presets.AllTags": {
-    "en": "All tags"
-  },
-  "SawooPlates.PartyBar.Label": {
-    "en": "Copy portrait:"
-  },
-  "SawooPlates.PartyBar.Tooltip": {
-    "en": "Keeps {0}'s portrait in Recent and copies its preset code."
-  },
-  "SawooPlates.PartyBar.SaveAll": {
-    "en": "Keep everyone's portrait"
-  },
   "SawooPlates.Notification.SavedPortraits": {
     "en": "Added {0} portraits to Recent."
   },
-  "SawooPlates.Settings.AutoCapturePartyPortraits.Label": {
-    "en": "Remember party portraits at the start of a duty"
+  "SawooPlates.Settings.KeepInRecent.Label": {
+    "en": "Keep portraits you see in Recent"
   },
-  "SawooPlates.Settings.AutoCaptureMvpVote.Label": {
-    "en": "Remember portraits from the MVP vote"
+  "SawooPlates.Settings.KeepInRecent.Description": {
+    "en": "From Adventurer Plates you open, party portraits and the MVP vote. Your own character is left out."
   },
-  "SawooPlates.Settings.AutoCaptureMvpVote.Description": {
-    "en": "These two screens don't show frames or accents, so those are left out."
+  "SawooPlates.Settings.ShowButtons.Label": {
+    "en": "Show Sawoo Plates buttons on plates and portraits"
   },
-  "SawooPlates.Settings.ShowPartyButtons.Label": {
-    "en": "Show copy buttons above party and MVP portraits"
+  "SawooPlates.Settings.ShowButtons.Description": {
+    "en": "Also adds an entry to the right-click menu."
   }
 }

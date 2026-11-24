@@ -65,6 +65,7 @@ public static class PluginServices
             .AddSingleton<PresetDetailPanel>()
             .AddSingleton<PlateItems>()
             .AddSingleton<PlateRenderer>()
+            .AddSingleton<BackupService>()
             .AddSingleton<ApplyControls>()
             .AddSingleton<SawooPlates.Windows.Tabs.RecentTab>()
             .AddSingleton<SawooPlates.Windows.Tabs.PresetsTab>()
@@ -128,6 +129,9 @@ public sealed class Plugin : IDalamudPlugin
 
         try
         {
+            // a copy of settings, presets and history as they were before this session touches them
+            _services.GetRequiredService<BackupService>().Create("startup");
+
             _mainWindow = _services.GetRequiredService<MainWindow>();
             _windowSystem.AddWindow(_mainWindow);
 

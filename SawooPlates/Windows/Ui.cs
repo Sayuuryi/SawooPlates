@@ -10,6 +10,7 @@ public static class Ui
     public static readonly Vector4 Good = new(0.47f, 0.84f, 0.47f, 1f);
     public static readonly Vector4 Bad = new(0.96f, 0.50f, 0.42f, 1f);
     public static readonly Vector4 Accent = new(0.85f, 0.73f, 0.49f, 1f);
+    public static readonly Vector4 Warn = new(0.95f, 0.78f, 0.35f, 1f);
 
     public static float Scale => ImGuiHelpers.GlobalScale;
 
