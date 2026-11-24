@@ -142,7 +142,7 @@ public sealed class PlateItems(
         }
 
         // Portrait, Plate and Gear next to each other when there's room, so less scrolling
-        var columns = Math.Clamp((int)(ImGui.GetContentRegionAvail().X / (260 * Ui.Scale)), 1, Math.Max(1, cells.Count));
+        var columns = Math.Clamp((int)(ImGui.GetContentRegionAvail().X / (300 * Ui.Scale)), 1, Math.Max(1, cells.Count));
         if (columns == 1)
         {
             foreach (var cell in cells)
@@ -150,15 +150,22 @@ public sealed class PlateItems(
             return;
         }
 
-        using var table = ImRaii.Table("##PartGroups", columns, ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoSavedSettings);
-        if (!table)
-            return;
+        // roomy cells with a thin line between groups; the padding only applies to this outer table
+        var padding = ImRaii.PushStyle(ImGuiStyleVar.CellPadding, new Vector2(14 * Ui.Scale, 2 * Ui.Scale));
+        var table = ImRaii.Table("##PartGroups", columns, ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.NoSavedSettings);
+        padding.Dispose();
 
-        foreach (var (cell, index) in cells.Select((c, i) => (c, i)))
+        using (table)
         {
-            ImGui.TableNextColumn();
-            using var id = ImRaii.PushId(index);
-            cell();
+            if (!table)
+                return;
+
+            foreach (var (cell, index) in cells.Select((c, i) => (c, i)))
+            {
+                ImGui.TableNextColumn();
+                using var id = ImRaii.PushId(index);
+                cell();
+            }
         }
     }
 

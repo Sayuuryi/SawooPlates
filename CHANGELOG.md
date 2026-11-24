@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.15.0]
+
+### Recent and Presets
+- Owned counts show for every group again
+- More room and a divider between Portrait, Plate and Gear
+- Presets saved from Recent keep their gear and dyes
+
 ## [0.9.14.0]
 
 ### Recent and Presets

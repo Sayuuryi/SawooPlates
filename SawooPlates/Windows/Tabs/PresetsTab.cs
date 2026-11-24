@@ -266,7 +266,7 @@ public sealed class PresetsTab(
         }
     }
 
-    private static CapturedPortrait AsCapture(SavedPreset preset) => new() { Preset = preset.Preset!, Plate = preset.Plate };
+    private static CapturedPortrait AsCapture(SavedPreset preset) => new() { Preset = preset.Preset!, Plate = preset.Plate, Gear = preset.Gear ?? [] };
 
     private string TagNames(SavedPreset preset)
         => string.Join(", ", preset.Tags.Select(id => Config.PresetTags.FirstOrDefault(t => t.Id == id)?.Name).Where(n => n != null));

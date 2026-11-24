@@ -20,11 +20,15 @@ public static class Ui
     public static void Section(string title, string? right = null)
     {
         ImGui.Spacing();
+        var left = ImGui.GetCursorScreenPos().X;
+        var width = ImGui.GetContentRegionAvail().X;
         ImGui.TextColored(Accent, title);
         if (right != null)
         {
             // count or note at the right edge, away from the title
-            ImGui.SameLine(ImGui.GetContentRegionAvail().X + ImGui.GetCursorPosX() - ImGui.CalcTextSize(right).X);
+            ImGui.SameLine();
+            var x = Math.Max(ImGui.GetCursorScreenPos().X, left + width - ImGui.CalcTextSize(right).X);
+            ImGui.SetCursorScreenPos(new Vector2(x, ImGui.GetCursorScreenPos().Y));
             ImGui.TextColored(Dim, right);
         }
 

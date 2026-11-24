@@ -13,6 +13,9 @@ public record SavedPreset
     /// <summary>Plate design saved together with the portrait, when it came from an Adventurer Plate.</summary>
     public PlateDesignData? Plate;
 
+    /// <summary>Gear and dyes shown in the portrait, when it was saved from Recent.</summary>
+    public List<GearPiece>? Gear;
+
     [JsonConstructor]
     public SavedPreset(Guid Id, string Name, PortraitPresetData? Preset, HashSet<Guid> Tags)
     {

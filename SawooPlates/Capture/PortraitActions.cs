@@ -46,6 +46,12 @@ public sealed class PortraitActions(
         var existing = config.Presets.FirstOrDefault(p => p.Preset?.ToExportedString() == code && SamePlate(p.Plate, capture.Plate));
         if (existing != null)
         {
+            if (existing.Gear is not { Count: > 0 } && capture.Gear.Count > 0)
+            {
+                existing.Gear = [.. capture.Gear];
+                pluginConfig.Save();
+            }
+
             captureService.Notify($"Already saved as \"{existing.Name}\".");
             return existing;
         }
@@ -57,7 +63,7 @@ public sealed class PortraitActions(
             config.PresetTags.Add(tag);
         }
 
-        var preset = new SavedPreset(Guid.CreateVersion7(), name.Trim(), capture.Preset with { }, [tag.Id]) { Plate = capture.Plate };
+        var preset = new SavedPreset(Guid.CreateVersion7(), name.Trim(), capture.Preset with { }, [tag.Id]) { Plate = capture.Plate, Gear = capture.Gear.Count > 0 ? [.. capture.Gear] : null };
 
         var source = captureService.GetImagePath(capture.Id);
         if (File.Exists(source))
