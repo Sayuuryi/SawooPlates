@@ -109,7 +109,7 @@ public sealed class PlateRenderer(ITextureProvider textures, ExcelService excel)
             Icon((uint)bg.Image);
 
         var size = max - min;
-        if (thumbnails.TryGetThumbnail(imageId, (int)size.X, (int)size.Y, out _, out var wrap, out _) && wrap != null)
+        if (thumbnails.TryGetBest(imageId, size, out var wrap) && wrap != null)
             draw.AddImage(wrap.Handle, min, max);
 
         if (frameKnown && excel.TryGetRow<BannerFrame>(preset.BannerFrame, out var frame))

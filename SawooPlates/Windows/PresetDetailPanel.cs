@@ -22,7 +22,7 @@ public sealed class PresetDetailPanel(
         else
             textureProvider.DrawIcon(190009, size);
 
-        if (thumbnails.TryGetThumbnail(imageId, (int)size.X, (int)size.Y, out _, out var wrap, out _) && wrap != null)
+        if (thumbnails.TryGetBest(imageId, size, out var wrap) && wrap != null)
         {
             ImCursor.Position = start;
             ImGui.Image(wrap.Handle, size);

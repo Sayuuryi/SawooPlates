@@ -136,7 +136,7 @@ public sealed class PresetsTab(
         // tiny portrait thumbnail
         var thumb = new Vector2(height * 0.6f, height);
         ImGui.SetCursorPos(start);
-        if (thumbnails.TryGetThumbnail(preset.Id, (int)thumb.X, (int)thumb.Y, out _, out var wrap, out _) && wrap != null)
+        if (thumbnails.TryGetBest(preset.Id, thumb, out var wrap) && wrap != null)
             ImGui.Image(wrap.Handle, thumb);
         else
             ImGui.Dummy(thumb);
@@ -242,7 +242,7 @@ public sealed class PresetsTab(
         using var tooltip = ImRaii.Tooltip();
 
         var size = new Vector2(96, 160) * Ui.Scale;
-        if (thumbnails.TryGetThumbnail(preset.Id, (int)size.X, (int)size.Y, out _, out var wrap, out _) && wrap != null)
+        if (thumbnails.TryGetBest(preset.Id, size, out var wrap) && wrap != null)
         {
             ImGui.Image(wrap.Handle, size);
             ImGui.SameLine(0, 10 * Ui.Scale);

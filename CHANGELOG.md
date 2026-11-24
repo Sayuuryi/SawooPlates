@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.9.10.0]
+
+### Fixes
+- Portraits no longer flicker or go blank while resizing the window
+
 ## [0.9.9.0]
 
 ### Recent and Presets

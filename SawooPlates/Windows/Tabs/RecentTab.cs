@@ -294,7 +294,7 @@ public sealed class RecentTab(
         using var tooltip = ImRaii.Tooltip();
 
         var size = new Vector2(96, 160) * Ui.Scale;
-        if (entry.HasImage && thumbnails.TryGetThumbnail(entry.Id, (int)size.X, (int)size.Y, out _, out var wrap, out _) && wrap != null)
+        if (entry.HasImage && thumbnails.TryGetBest(entry.Id, size, out var wrap) && wrap != null)
         {
             ImGui.Image(wrap.Handle, size);
             ImGui.SameLine(0, 10 * Ui.Scale);

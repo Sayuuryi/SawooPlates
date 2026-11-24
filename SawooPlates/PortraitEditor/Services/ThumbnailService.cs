@@ -35,7 +35,7 @@ public class ThumbnailService(IDalamudPluginInterface _pluginInterface, ITexture
     private readonly ConcurrentDictionary<Guid, ConfiguredTaskAwaitable> _imageTasks = [];
     private readonly ConcurrentDictionary<Guid, ImageResult> _images = [];
 
-    private readonly ConcurrentDictionary<Guid, ConfiguredTaskAwaitable> _thumbnailTasks = [];
+    private readonly ConcurrentDictionary<(Guid, Size), ConfiguredTaskAwaitable> _thumbnailTasks = [];
     private readonly ConcurrentDictionary<(Guid, Size), ThumbnailResult> _thumbnails = [];
 
     private CancellationTokenSource? _disposeCTS = new();
@@ -149,7 +149,7 @@ public class ThumbnailService(IDalamudPluginInterface _pluginInterface, ITexture
 
         thumbnailResult = _thumbnails.GetOrAdd((id, (width, height)), static (key) => new ThumbnailResult { Id = key.Item1, Size = key.Item2 });
 
-        _ = _thumbnailTasks.GetOrAdd(id, _ => Task.Run(() =>
+        _ = _thumbnailTasks.GetOrAdd((id, (width, height)), _ => Task.Run(() =>
         {
             try
             {
@@ -171,10 +171,32 @@ public class ThumbnailService(IDalamudPluginInterface _pluginInterface, ITexture
             }
             finally
             {
-                _thumbnailTasks.TryRemove(id, out var _);
+                _thumbnailTasks.TryRemove((id, (width, height)), out var _);
             }
         }, _disposeCTS.Token).ConfigureAwait(false));
 
         return false;
+    }
+
+    /// <summary>
+    /// A portrait texture for drawing at <paramref name="drawSize"/>. Sizes are rounded up to a few fixed steps
+    /// (the GPU scales the rest), so resizing a window doesn't make a new texture every frame. While the right
+    /// step is being made, the largest one already made is returned, so the image never blinks out.
+    /// </summary>
+    public bool TryGetBest(Guid id, Vector2 drawSize, out IDalamudTextureWrap? wrap)
+    {
+        const int Step = 160, Max = 960;
+        var height = Math.Clamp((int)Math.Ceiling(drawSize.Y / Step) * Step, Step, Max);
+        var width = height * 3 / 5; // portraits are 576x960
+
+        if (TryGetThumbnail(id, width, height, out _, out wrap, out _) && wrap != null)
+            return true;
+
+        wrap = _thumbnails
+            .Where(kv => kv.Key.Item1 == id && kv.Value.Texture != null)
+            .OrderByDescending(kv => kv.Key.Item2.Height)
+            .Select(kv => kv.Value.Texture)
+            .FirstOrDefault();
+        return wrap != null;
     }
 }
