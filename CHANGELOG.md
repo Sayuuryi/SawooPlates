@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.13.0]
+
+### Recent and Presets
+- The plate and its parts are always side by side
+- Portrait, Plate and Gear sit next to each other when the window is wide, so there's less scrolling
+
 ## [0.9.12.0]
 
 ### Recent and Presets

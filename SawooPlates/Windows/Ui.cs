@@ -33,20 +33,12 @@ public static class Ui
     }
 
     /// <summary>
-    /// Picture on the left at a fixed width, parts list on the right taking the rest. Resizing the window only
-    /// changes the right side. Stacked only when the right side would be too narrow to read.
+    /// Picture on the left at a fixed width, parts on the right taking the rest. Always side by side;
+    /// resizing the window only changes the right side.
     /// </summary>
     public static void DetailColumns(string id, float visualWidth, Action visual, Action parts)
     {
-        var avail = ImGui.GetContentRegionAvail();
         var gap = 14 * Scale;
-        if (avail.X - visualWidth - gap < 240 * Scale)
-        {
-            visual();
-            ImGui.Dummy(new Vector2(0, 8 * Scale));
-            parts();
-            return;
-        }
 
         using (var child = ImRaii.Child($"##{id}Visual", new Vector2(visualWidth, -1), false))
         {

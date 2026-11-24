@@ -26,7 +26,7 @@ public sealed class MainWindow : Window
         SizeCondition = ImGuiCond.FirstUseEver;
         SizeConstraints = new WindowSizeConstraints
         {
-            MinimumSize = new Vector2(720, 460),
+            MinimumSize = new Vector2(1000, 480),
             MaximumSize = new Vector2(float.MaxValue, float.MaxValue),
         };
     }

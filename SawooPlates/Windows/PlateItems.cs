@@ -119,19 +119,46 @@ public sealed class PlateItems(
     {
         var groups = BuildGroups(capture, preset, frameKnown, decorationKnown);
 
+        var cells = new List<Action>();
         foreach (var group in groups)
         {
-            var known = group.Rows.Count(r => r.Own.State != OwnState.Unknown);
-            Ui.Section(group.Title, known > 0 ? $"{group.Have} of {known} owned" : null);
-            DrawRows(group);
+            cells.Add(() =>
+            {
+                var known = group.Rows.Count(r => r.Own.State != OwnState.Unknown);
+                Ui.Section(group.Title, known > 0 ? $"{group.Have} of {known} owned" : null);
+                DrawRows(group);
+            });
         }
 
         if (showGearNote && capture != null && capture.Gear.Count == 0)
         {
-            Ui.Section("Gear");
-            ImGui.TextColored(Ui.Dim, gearPending
-                ? "Reading gear..."
-                : "No gear was read for this portrait. Open the plate again to fill it in.");
+            cells.Add(() =>
+            {
+                Ui.Section("Gear");
+                ImGui.TextWrapped(gearPending
+                    ? "Reading gear..."
+                    : "No gear was read for this portrait. Open the plate again to fill it in.");
+            });
+        }
+
+        // Portrait, Plate and Gear next to each other when there's room, so less scrolling
+        var columns = Math.Clamp((int)(ImGui.GetContentRegionAvail().X / (260 * Ui.Scale)), 1, Math.Max(1, cells.Count));
+        if (columns == 1)
+        {
+            foreach (var cell in cells)
+                cell();
+            return;
+        }
+
+        using var table = ImRaii.Table("##PartGroups", columns, ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoSavedSettings);
+        if (!table)
+            return;
+
+        foreach (var (cell, index) in cells.Select((c, i) => (c, i)))
+        {
+            ImGui.TableNextColumn();
+            using var id = ImRaii.PushId(index);
+            cell();
         }
     }
 
@@ -174,11 +201,12 @@ public sealed class PlateItems(
             }
 
             ImGui.TableNextColumn();
+            var rowRight = ImGui.GetCursorScreenPos().X + ImGui.GetContentRegionAvail().X;
             ImGui.SetCursorPosY(ImGui.GetCursorPosY() + (icon - ImGui.GetTextLineHeight()) / 2f);
             Ui.OwnBadge(row.Own, tooltip: false);
 
-            // whole row is the hover target for the details tooltip
-            var rowMax = new Vector2(ImGui.GetWindowPos().X + ImGui.GetWindowContentRegionMax().X, rowMin.Y + icon);
+            // whole row (within its column) is the hover target for the details tooltip
+            var rowMax = new Vector2(rowRight, rowMin.Y + icon);
             if (ImGui.IsWindowHovered() && ImGui.IsMouseHoveringRect(rowMin, rowMax))
             {
                 DrawTooltip(row);
