@@ -15,7 +15,7 @@ namespace SawooPlates.Config;
 /// </summary>
 public class PluginConfig : IPluginConfiguration
 {
-    public const int CurrentVersion = 5;
+    public const int CurrentVersion = 6;
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -111,6 +111,22 @@ public class PluginConfig : IPluginConfiguration
                 }
 
                 version = 5;
+            }
+
+            // 6: the tag for presets saved from Recent is called "Saved" now
+            if (version < 6)
+            {
+                if (json["PortraitEditor"]?["PresetTags"] is JsonArray tags)
+                {
+                    var hasSaved = tags.Any(t => t?["Name"]?.GetValue<string>() == "Saved");
+                    foreach (var tag in tags)
+                    {
+                        if (!hasSaved && tag?["Name"]?.GetValue<string>() == "Captured")
+                            tag["Name"] = "Saved";
+                    }
+                }
+
+                version = 6;
             }
 
             json[nameof(Version)] = Math.Max(version, CurrentVersion);

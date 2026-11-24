@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using Dalamud.Interface.Colors;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 
@@ -74,15 +73,6 @@ public struct Color(float r, float g, float b, float a = 1)
     public static Color FromRGBA(uint rgba)
         => FromVector4(ImGui.ColorConvertU32ToFloat4(rgba));
 
-    public static Color FromBGRA(uint bgra)
-        => FromRGBA((bgra & 0xFF00FF00) | ((bgra & 0x000000FF) << 16) | ((bgra & 0x00FF0000) >> 16)); // swap red and blue channel
-
-    public static Color FromABGR(uint abgr)
-        => FromRGBA(BinaryPrimitives.ReverseEndianness(abgr));
-
-    public static Color FromARGB(uint argb)
-        => FromRGBA(BinaryPrimitives.ReverseEndianness((argb & 0xFF00FF00) | ((argb & 0x000000FF) << 16) | ((argb & 0x00FF0000) >> 16))); // swap red and blue channel, then endianness
-
     public ImRaii.ColorDisposable Push(ImGuiCol idx, bool condition = true)
         => ImRaii.PushColor(idx, ToUInt(), condition);
 
@@ -110,13 +100,6 @@ public struct Color(float r, float g, float b, float a = 1)
         => new(col.R, col.G, col.B, col.A);
 
     #region HSV
-
-    public static Color FromHSV(float h, float s, float v, float a = 1.0f)
-    {
-        var color = new Color() { A = a };
-        ImGui.ColorConvertHSVtoRGB(h, s, v, ref color.R, ref color.G, ref color.B);
-        return color;
-    }
 
     public readonly (float H, float S, float V) ToHSV()
     {

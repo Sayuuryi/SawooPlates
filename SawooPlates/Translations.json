@@ -2,17 +2,14 @@
   "Editor.GearChecksumMismatch": {
     "en": "Current appearance and/or gear does not match that shown in portrait."
   },
-  "Editor.Config.IncompatibilityWarning.Glamourer": {
-    "en": "In order for notifications and portrait updates to work properly, please make sure Glamourer is not automatically changing the facewear, the visibility of the weapon, headgear or viera ears or the state of the visor."
-  },
   "Editor.Config.NotifyGearChecksumMismatch.Label": {
-    "en": "Notify if appearance and/or gear doesn't match Portait"
+    "en": "Tell me when my gear doesn't match my portrait"
   },
   "Editor.Config.NotifyGearChecksumMismatch.Description": {
-    "en": "Prints a notification in chat which can be clicked to open the Portrait Editor."
+    "en": "Shows a message in chat. Click it to open the Portrait Editor."
   },
   "Editor.Config.IgnoreDoHDoL.Label": {
-    "en": "Do not notify for DoH/DoL jobs"
+    "en": "Not for crafters and gatherers"
   },
   "EditorWindows.CreatePresetDialog.Title": {
     "en": "Save as Preset"
@@ -256,9 +253,6 @@
   },
   "ConfirmationButtonWindow.Delete": {
     "en": "Delete"
-  },
-  "Common.Config.SectionTitle.IncompatibilityWarning": {
-    "en": "Incompatibility Warning"
   },
   "AdvancedEditOverlay.Title": {
     "en": "[Sawoo Plates] Advanced Edit"

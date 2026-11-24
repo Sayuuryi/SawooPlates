@@ -1,3 +1,4 @@
+using Dalamud.Interface.Components;
 using SawooPlates.Capture;
 
 namespace SawooPlates.Windows.Tabs;
@@ -25,7 +26,9 @@ public sealed class RecentTab(
     private List<Guid> _order = [];
 
     private string _saveName = string.Empty;
+    private CapturedPortrait? _saveTarget;
     private bool _openSavePopup;
+    private bool _openClearPopup;
 
     /// <summary>Selects an entry, e.g. when opened from the plate button.</summary>
     public void Select(Guid id)
@@ -38,6 +41,12 @@ public sealed class RecentTab(
     }
 
     public void Draw()
+    {
+        DrawContent();
+        DrawPopups();
+    }
+
+    private void DrawContent()
     {
         var entries = captureService.History.Entries;
 
@@ -77,6 +86,13 @@ public sealed class RecentTab(
             DrawDetail(selected);
     }
 
+    /// <summary>Popups opened from the list or the detail view.</summary>
+    private void DrawPopups()
+    {
+        DrawSavePopup();
+        DrawClearPopup();
+    }
+
     private void DrawMulti(List<CapturedPortrait> filtered)
     {
         var marked = filtered.Where(e => _selection.Marked.Contains(e.Id)).ToList();
@@ -85,7 +101,7 @@ public sealed class RecentTab(
         ImGui.TextColored(Ui.Dim, "Ctrl+click to add or remove, Shift+click to select a range.");
         ImGui.Spacing();
 
-        if (Ui.CtrlDeleteButton("DeleteMarked", $"Remove {marked.Count} plates from Recent", "Remove selected"))
+        if (Ui.CtrlDeleteButton("RemoveMarked", $"Remove {marked.Count} plates from Recent.", $"Remove {marked.Count} from Recent"))
         {
             foreach (var entry in marked)
                 captureService.Remove(entry.Id);
@@ -172,12 +188,10 @@ public sealed class RecentTab(
         ImGui.TextColored(Ui.Dim, $"{filtered.Count} of {all.Count}");
 
         ImGui.SameLine(ImGui.GetContentRegionAvail().X + ImGui.GetCursorPosX() - ImGui.GetFrameHeight());
-        if (Ui.CtrlDeleteButton("ClearAll", "Remove every plate from Recent. Saved presets stay."))
-        {
-            captureService.ClearAll();
-            _selection.ClearMarked();
-            _selection.Current = null;
-        }
+        if (ImGuiComponents.IconButton("##Clear", FontAwesomeIcon.Broom))
+            _openClearPopup = true;
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Empty Recent\nClears your list of recently viewed Adventure Plates. Saved presets stay.");
     }
 
     private void DrawListRow(CapturedPortrait entry)
@@ -193,6 +207,12 @@ public sealed class RecentTab(
 
         if (ImGui.IsItemHovered())
             DrawRowTooltip(entry);
+
+        if (ImGui.BeginPopupContextItem("##RowMenu"))
+        {
+            DrawRowMenu(entry);
+            ImGui.EndPopup();
+        }
 
         if (isSelected && _scrollToSelected)
         {
@@ -226,6 +246,49 @@ public sealed class RecentTab(
         ImGui.SetCursorPos(end);
     }
 
+    private void DrawRowMenu(CapturedPortrait entry)
+    {
+        // right-click on one of several selected rows acts on all of them
+        if (_selection.IsMulti && _selection.Marked.Contains(entry.Id))
+        {
+            var ids = _selection.Marked.ToList();
+            if (ImGui.MenuItem($"Remove {ids.Count} plates from Recent"))
+            {
+                foreach (var id in ids)
+                    captureService.Remove(id);
+                _selection.ClearMarked();
+                _selection.Current = null;
+            }
+
+            return;
+        }
+
+        ImGui.TextColored(Ui.Accent, entry.Name);
+        ImGui.Separator();
+
+        if (ImGui.MenuItem("Apply to my portrait", string.Empty, false, actions.CanApply))
+            actions.Apply(entry, choose: false);
+        if (ImGui.MenuItem("Save as preset"))
+            OpenSave(entry);
+        if (ImGui.MenuItem("Copy code"))
+            actions.CopyCode(entry.Preset, entry.Name);
+
+        ImGui.Separator();
+        if (ImGui.MenuItem("Remove from Recent"))
+        {
+            captureService.Remove(entry.Id);
+            if (_selection.Current == entry.Id)
+                _selection.Current = null;
+        }
+    }
+
+    private void OpenSave(CapturedPortrait capture)
+    {
+        _saveTarget = capture;
+        _saveName = capture.DefaultPresetName;
+        _openSavePopup = true;
+    }
+
     private void DrawRowTooltip(CapturedPortrait entry)
     {
         using var tooltip = ImRaii.Tooltip();
@@ -251,7 +314,9 @@ public sealed class RecentTab(
             if (missing > 0)
                 ImGui.TextColored(Ui.Bad, missing == 1 ? "You're missing 1 part" : $"You're missing {missing} parts");
             else
-                ImGui.TextColored(Ui.Good, "You have everything");
+                ImGui.TextColored(Ui.Good, "You have every part");
+
+            ImGui.TextColored(Ui.Dim, "Right-click for more.");
         }
     }
 
@@ -305,35 +370,8 @@ public sealed class RecentTab(
         ImGui.Spacing();
         DrawActions(capture);
 
-        // summary
-        var missing = plateItems.CountMissing(capture, capture.Preset, capture.FrameKnown, capture.DecorationKnown);
         ImGui.Spacing();
-        if (missing > 0)
-        {
-            Ui.Icon(FontAwesomeIcon.ExclamationCircle, Ui.Bad);
-            ImGui.SameLine();
-            ImGui.TextUnformatted(missing == 1 ? "You're missing 1 part of this plate." : $"You're missing {missing} parts of this plate.");
-        }
-        else
-        {
-            Ui.Icon(FontAwesomeIcon.CheckCircle, Ui.Good);
-            ImGui.SameLine();
-            ImGui.TextUnformatted("You have every part of this plate.");
-        }
-
-        // gear is only a heads-up: it doesn't stop the plate from being applied
-        var missingGear = plateItems.GetMissingGear(capture);
-        if (missingGear.Count > 0)
-        {
-            Ui.Icon(FontAwesomeIcon.Tshirt, Ui.Warn);
-            ImGui.SameLine();
-            ImGui.TextUnformatted(missingGear.Count == 1 ? "1 gear piece isn't in your collection." : $"{missingGear.Count} gear pieces aren't in your collection.");
-            if (ImGui.IsItemHovered())
-            {
-                using var tip = ImRaii.Tooltip();
-                plateItems.DrawMissingList(missingGear, "Not found in your inventory, armoury, glamour dresser or armoire:");
-            }
-        }
+        plateItems.DrawStatus(capture, capture.FrameKnown, capture.DecorationKnown);
 
         if (!capture.FrameKnown || !capture.DecorationKnown)
             ImGui.TextColored(Ui.Dim, "This screen doesn't show frames, accents or the plate design.");
@@ -342,13 +380,12 @@ public sealed class RecentTab(
         ImGui.Separator();
         ImGui.Spacing();
 
-        // portrait on the left, items on the right
+        // the whole Adventurer Plate across the top (as wide as the window), the list of parts below it;
+        // without a plate design, the portrait on the left and the parts on the right
         if (capture.Plate is { } plateDesign)
         {
-            // the whole Adventurer Plate across the top, the list of parts below it
-            var width = Math.Min(ImGui.GetContentRegionAvail().X, 640 * Ui.Scale);
-            plateRenderer.Draw(plateDesign, capture.Preset, thumbnails, capture.Id, width, capture.FrameKnown, capture.DecorationKnown);
-            ImGui.Spacing();
+            plateRenderer.Draw(plateDesign, capture.Preset, thumbnails, capture.Id, ImGui.GetContentRegionAvail().X, capture.FrameKnown, capture.DecorationKnown);
+            ImGui.Dummy(new Vector2(0, 8 * Ui.Scale));
         }
         else
         {
@@ -377,26 +414,15 @@ public sealed class RecentTab(
 
         ImGui.SameLine();
         if (Ui.Button(FontAwesomeIcon.Save, "Save as preset"))
-        {
-            _saveName = capture.DefaultPresetName;
-            _openSavePopup = true;
-        }
+            OpenSave(capture);
 
         ImGui.SameLine();
         if (Ui.Button(FontAwesomeIcon.Copy, "Copy code", tooltip: "Copy the preset code to share or paste in the Portrait Editor."))
             actions.CopyCode(capture.Preset, capture.Name);
 
-        ImGui.SameLine(ImGui.GetContentRegionAvail().X + ImGui.GetCursorPosX() - ImGui.GetFrameHeight());
-        if (Ui.CtrlDeleteButton("Delete", "Remove from Recent"))
-        {
-            captureService.Remove(capture.Id);
-            _selection.Current = null;
-        }
-
-        DrawSavePopup(capture);
     }
 
-    private void DrawSavePopup(CapturedPortrait capture)
+    private void DrawSavePopup()
     {
         const string title = "Save as preset##SaveCapture";
 
@@ -408,7 +434,7 @@ public sealed class RecentTab(
 
         ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f));
         using var popup = ImRaii.PopupModal(title, ImGuiWindowFlags.AlwaysAutoResize);
-        if (!popup)
+        if (!popup || _saveTarget is not { } capture)
             return;
 
         ImGui.TextUnformatted("Name");
@@ -437,4 +463,35 @@ public sealed class RecentTab(
             ImGui.CloseCurrentPopup();
     }
 
+    private void DrawClearPopup()
+    {
+        const string title = "Empty Recent?##ClearRecent";
+
+        if (_openClearPopup)
+        {
+            ImGui.OpenPopup(title);
+            _openClearPopup = false;
+        }
+
+        ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f));
+        using var popup = ImRaii.PopupModal(title, ImGuiWindowFlags.AlwaysAutoResize);
+        if (!popup)
+            return;
+
+        ImGui.TextUnformatted($"This empties your list of recently viewed Adventure Plates ({captureService.History.Entries.Count}).");
+        ImGui.TextColored(Ui.Dim, "Saved presets stay. Plates come back when you open them again.");
+        ImGui.Spacing();
+
+        if (ImGui.Button("Empty Recent", new Vector2(140 * Ui.Scale, 0)))
+        {
+            captureService.ClearAll();
+            _selection.ClearMarked();
+            _selection.Current = null;
+            ImGui.CloseCurrentPopup();
+        }
+
+        ImGui.SameLine();
+        if (ImGui.Button("Cancel", new Vector2(120 * Ui.Scale, 0)))
+            ImGui.CloseCurrentPopup();
+    }
 }

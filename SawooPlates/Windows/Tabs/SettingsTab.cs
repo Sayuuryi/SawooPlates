@@ -8,7 +8,6 @@ namespace SawooPlates.Windows.Tabs;
 
 public sealed class SettingsTab(
     IDalamudPluginInterface pluginInterface,
-    ITextureProvider textureProvider,
     TextService textService,
     PluginConfig pluginConfig,
     CaptureService captureService,
@@ -23,23 +22,11 @@ public sealed class SettingsTab(
     {
         var changed = false;
 
-        DrawGlamourerWarning();
         changed |= DrawCaptureSettings();
         changed |= DrawPortraitEditorSettings();
 
         if (changed)
             pluginConfig.Save();
-    }
-
-    private void DrawGlamourerWarning()
-    {
-        if (!pluginInterface.InstalledPlugins.Any(p => p.IsLoaded && p.InternalName == "Glamourer"))
-            return;
-
-        ImGuiUtils.DrawSection(textService.Translate("Common.Config.SectionTitle.IncompatibilityWarning"), pushDown: false);
-        textureProvider.DrawIcon(60073, 24);
-        ImGui.SameLine();
-        ImGui.TextWrapped(textService.Translate("Editor.Config.IncompatibilityWarning.Glamourer"));
     }
 
     private bool DrawCaptureSettings()
@@ -112,6 +99,12 @@ public sealed class SettingsTab(
 
         if (Group("Gear and portrait", FontAwesomeIcon.Tshirt))
         {
+            if (pluginInterface.InstalledPlugins.Any(p => p.IsLoaded && p.InternalName == "Glamourer"))
+            {
+                ImGui.TextColored(Ui.Dim, "Glamourer is on. If it changes your gear, weapon or visor by itself, this warning can show up when nothing is wrong.");
+                ImGui.Spacing();
+            }
+
             changed |= DrawBool("NotifyGearChecksumMismatch", ref config.NotifyGearChecksumMismatch, drawAfterDescription: () =>
             {
                 using var disabled = ImRaii.Disabled(!config.NotifyGearChecksumMismatch);

@@ -26,6 +26,9 @@ public sealed class PresetsTab(
     private string _newTag = string.Empty;
     private bool _openEdit;
 
+    private List<SavedPreset> _deleting = [];
+    private bool _openDelete;
+
     private PortraitEditorSettings Config => pluginConfig.PortraitEditor;
 
     public void Draw()
@@ -69,6 +72,7 @@ public sealed class PresetsTab(
         }
 
         DrawEditPopup();
+        DrawDeletePopup();
     }
 
     private void DrawList(List<SavedPreset> presets)
@@ -121,6 +125,12 @@ public sealed class PresetsTab(
         if (ImGui.IsItemHovered())
             DrawRowTooltip(preset);
 
+        if (ImGui.BeginPopupContextItem("##RowMenu"))
+        {
+            DrawRowMenu(preset);
+            ImGui.EndPopup();
+        }
+
         var end = ImGui.GetCursorPos();
 
         // tiny portrait thumbnail
@@ -146,6 +156,87 @@ public sealed class PresetsTab(
         ImGui.SetCursorPos(end);
     }
 
+    private void DrawRowMenu(SavedPreset preset)
+    {
+        if (_selection.IsMulti && _selection.Marked.Contains(preset.Id))
+        {
+            var marked = Config.Presets.Where(p => _selection.Marked.Contains(p.Id)).ToList();
+            if (ImGui.MenuItem($"Delete {marked.Count} presets..."))
+                AskDelete(marked);
+            return;
+        }
+
+        ImGui.TextColored(Ui.Accent, preset.Name);
+        ImGui.Separator();
+
+        if (ImGui.MenuItem("Apply to my portrait", string.Empty, false, actions.CanApply))
+            actions.Apply(preset.Preset!, choose: false);
+        if (ImGui.MenuItem("Copy code"))
+            actions.CopyCode(preset.Preset!);
+        if (ImGui.MenuItem("Edit name and tags"))
+            OpenEdit(preset);
+
+        ImGui.Separator();
+        if (ImGui.MenuItem("Delete preset..."))
+            AskDelete([preset]);
+    }
+
+    private void AskDelete(List<SavedPreset> presets)
+    {
+        _deleting = presets;
+        _openDelete = true;
+    }
+
+    private void OpenEdit(SavedPreset preset)
+    {
+        _editing = preset;
+        _editName = preset.Name;
+        _editTags.Clear();
+        _editTags.UnionWith(preset.Tags);
+        _newTag = string.Empty;
+        _openEdit = true;
+    }
+
+    private void DrawDeletePopup()
+    {
+        const string title = "Delete?##DeletePresets";
+
+        if (_openDelete)
+        {
+            ImGui.OpenPopup(title);
+            _openDelete = false;
+        }
+
+        ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f));
+        using var popup = ImRaii.PopupModal(title, ImGuiWindowFlags.AlwaysAutoResize);
+        if (!popup || _deleting.Count == 0)
+            return;
+
+        ImGui.TextUnformatted(_deleting.Count == 1 ? $"Delete \"{_deleting[0].Name}\"?" : $"Delete {_deleting.Count} presets?");
+        ImGui.TextColored(Ui.Dim, "They're also removed from the Portrait Editor's Preset Browser.");
+        ImGui.Spacing();
+
+        using (ImRaii.PushColor(ImGuiCol.Text, Ui.Bad))
+        {
+            if (ImGui.Button("Delete", new Vector2(120 * Ui.Scale, 0)))
+            {
+                foreach (var preset in _deleting)
+                    actions.DeletePreset(preset);
+                _deleting = [];
+                _selection.ClearMarked();
+                _selection.Current = null;
+                ImGui.CloseCurrentPopup();
+            }
+        }
+
+        ImGui.SameLine();
+        if (ImGui.Button("Cancel", new Vector2(120 * Ui.Scale, 0)))
+        {
+            _deleting = [];
+            ImGui.CloseCurrentPopup();
+        }
+    }
+
     private void DrawRowTooltip(SavedPreset preset)
     {
         using var tooltip = ImRaii.Tooltip();
@@ -164,14 +255,18 @@ public sealed class PresetsTab(
             if (tags.Length > 0)
                 ImGui.TextColored(Ui.Dim, tags);
 
-            var missing = plateItems.CountMissing(null, preset.Preset!, true, true);
+            var missing = plateItems.CountMissing(AsCapture(preset), preset.Preset!, true, true);
             ImGui.Spacing();
             if (missing > 0)
-                ImGui.TextColored(Ui.Bad, missing == 1 ? "1 part isn't unlocked for you" : $"{missing} parts aren't unlocked for you");
+                ImGui.TextColored(Ui.Bad, missing == 1 ? "You're missing 1 part" : $"You're missing {missing} parts");
             else
-                ImGui.TextColored(Ui.Good, "You have everything it uses");
+                ImGui.TextColored(Ui.Good, "You have every part");
+
+            ImGui.TextColored(Ui.Dim, "Right-click for more.");
         }
     }
+
+    private static CapturedPortrait AsCapture(SavedPreset preset) => new() { Preset = preset.Preset!, Plate = preset.Plate };
 
     private string TagNames(SavedPreset preset)
         => string.Join(", ", preset.Tags.Select(id => Config.PresetTags.FirstOrDefault(t => t.Id == id)?.Name).Where(n => n != null));
@@ -192,12 +287,10 @@ public sealed class PresetsTab(
         ImGui.TextColored(Ui.Dim, "Ctrl+click to add or remove, Shift+click to select a range.");
         ImGui.Spacing();
 
-        if (Ui.CtrlDeleteButton("DeleteMarked", $"Delete {marked.Count} presets", "Delete selected"))
+        using (ImRaii.PushColor(ImGuiCol.Text, Ui.Bad))
         {
-            foreach (var preset in marked)
-                actions.DeletePreset(preset);
-            _selection.ClearMarked();
-            _selection.Current = null;
+            if (Ui.Button(FontAwesomeIcon.Trash, $"Delete {marked.Count} presets..."))
+                AskDelete(marked);
         }
 
         ImGui.SameLine();
@@ -225,32 +318,10 @@ public sealed class PresetsTab(
 
         ImGui.SameLine();
         if (Ui.Button(FontAwesomeIcon.Pen, "Edit"))
-        {
-            _editing = preset;
-            _editName = preset.Name;
-            _editTags.Clear();
-            _editTags.UnionWith(preset.Tags);
-            _newTag = string.Empty;
-            _openEdit = true;
-        }
+            OpenEdit(preset);
 
-        ImGui.SameLine(ImGui.GetContentRegionAvail().X + ImGui.GetCursorPosX() - ImGui.GetFrameHeight());
-        if (Ui.CtrlDeleteButton("Delete", "Delete preset"))
-        {
-            actions.DeletePreset(preset);
-            _selection.Current = null;
-        }
-
-        var missing = plateItems.CountMissing(null, preset.Preset!, true, true);
         ImGui.Spacing();
-        if (missing > 0)
-        {
-            Ui.Icon(FontAwesomeIcon.ExclamationCircle, Ui.Bad);
-            ImGui.SameLine();
-            ImGui.TextUnformatted(missing == 1
-                ? "1 part isn't unlocked for you; it is skipped when you apply the preset."
-                : $"{missing} parts aren't unlocked for you; they are skipped when you apply the preset.");
-        }
+        plateItems.DrawStatus(AsCapture(preset));
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -258,9 +329,8 @@ public sealed class PresetsTab(
 
         if (preset.Plate is { } plateDesign)
         {
-            var width = Math.Min(ImGui.GetContentRegionAvail().X, 640 * Ui.Scale);
-            plateRenderer.Draw(plateDesign, preset.Preset!, thumbnails, preset.Id, width);
-            ImGui.Spacing();
+            plateRenderer.Draw(plateDesign, preset.Preset!, thumbnails, preset.Id, ImGui.GetContentRegionAvail().X);
+            ImGui.Dummy(new Vector2(0, 8 * Ui.Scale));
         }
         else
         {
@@ -275,7 +345,7 @@ public sealed class PresetsTab(
         if (!items.Success)
             return;
 
-        plateItems.Draw(new CapturedPortrait { Preset = preset.Preset!, Plate = preset.Plate }, preset.Preset!, showGearNote: false);
+        plateItems.Draw(AsCapture(preset), preset.Preset!, showGearNote: false);
 
         ImGui.Spacing();
         if (ImGui.CollapsingHeader("Camera and lighting"))

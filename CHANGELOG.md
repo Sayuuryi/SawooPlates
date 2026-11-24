@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.9.9.0]
+
+### Recent and Presets
+- Right-click a plate or preset for its actions: apply, save, copy, remove or delete
+- One "Empty Recent" button with a confirmation instead of two trash icons
+- What you're missing is shown under the buttons; hover it to see the list with icons
+- Plate previews use the full width of the window
+- Owned counts sit at the right of each section
+- Presets with a plate design count its parts too
+- The tag for presets saved from Recent is now "Saved"
+
+### Settings
+- Clearer gear warning texts; the Glamourer note is one line and only shows when Glamourer is on
+
 ## [0.9.8.0]
 
 ### Presets

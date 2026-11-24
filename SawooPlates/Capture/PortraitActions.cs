@@ -22,7 +22,7 @@ public sealed class PortraitActions(
     MenuBarState menuBarState,
     MenuBar menuBar)
 {
-    public const string CapturedTagName = "Captured";
+    public const string CapturedTagName = "Saved";
 
     public void CopyCode(PortraitPresetData preset, string? who = null)
     {
@@ -110,8 +110,8 @@ public sealed class PortraitActions(
     }
 
     /// <summary>Applies a capture to the open Portrait Editor (see <see cref="Apply(PortraitPresetData, ImportFlags)"/>).</summary>
-    public void Apply(CapturedPortrait capture)
-        => Apply(capture.Preset, GetImportFlags(capture));
+    public void Apply(CapturedPortrait capture, bool? choose = null)
+        => Apply(capture.Preset, GetImportFlags(capture), choose);
 
     /// <summary>
     /// Applies a preset to the open Portrait Editor. With the menu bar on, it opens Advanced Import

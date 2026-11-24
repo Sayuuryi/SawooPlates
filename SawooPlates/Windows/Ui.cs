@@ -23,7 +23,8 @@ public static class Ui
         ImGui.TextColored(Accent, title);
         if (right != null)
         {
-            ImGui.SameLine();
+            // count or note at the right edge, away from the title
+            ImGui.SameLine(ImGui.GetContentRegionAvail().X + ImGui.GetCursorPosX() - ImGui.CalcTextSize(right).X);
             ImGui.TextColored(Dim, right);
         }
 
@@ -66,7 +67,7 @@ public static class Ui
         bool clicked;
 
         using (ImRaii.PushId(id))
-        using (ImRaii.PushColor(ImGuiCol.Text, Bad, ctrl))
+        using (ImRaii.PushColor(ImGuiCol.Text, Bad, !ctrl))
         {
             clicked = text == null
                 ? ImGuiComponents.IconButton(FontAwesomeIcon.Trash)

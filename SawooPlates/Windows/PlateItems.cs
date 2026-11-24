@@ -26,8 +26,61 @@ public sealed class PlateItems(
         => BuildGroups(capture, preset, frameKnown, decorationKnown)
             .Where(g => g.Title == group)
             .SelectMany(g => g.Rows)
-            .Select(r => new PartInfo(r.IconId, r.Name, r.Kind, r.Own, r.Part, r.PartId))
+            .Select(Info)
             .ToList();
+
+    private static PartInfo Info(Row r) => new(r.IconId, r.Name, r.Kind, r.Own, r.Part, r.PartId);
+
+    /// <summary>
+    /// Short status under the buttons: missing portrait/plate parts, missing gear, and the Ctrl tip.
+    /// Hovering a line lists the items with their icons.
+    /// </summary>
+    public void DrawStatus(CapturedPortrait capture, bool frameKnown = true, bool decorationKnown = true)
+    {
+        var groups = BuildGroups(capture, capture.Preset, frameKnown, decorationKnown);
+        var parts = groups.Where(g => g.Title != "Gear").SelectMany(g => g.Rows).Where(r => r.Own.State == OwnState.Missing).Select(Info).ToList();
+        var gear = groups.Where(g => g.Title == "Gear").SelectMany(g => g.Rows).Where(r => r.Own.State == OwnState.Missing).Select(Info).ToList();
+        var what = capture.Plate != null ? "plate" : "portrait";
+
+        if (parts.Count > 0)
+        {
+            StatusLine(FontAwesomeIcon.ExclamationCircle, Ui.Bad,
+                parts.Count == 1 ? $"You're missing 1 part of this {what}." : $"You're missing {parts.Count} parts of this {what}.");
+            if (ImGui.IsItemHovered())
+            {
+                using var tip = ImRaii.Tooltip();
+                DrawMissingList(parts, "These are skipped when you apply it:");
+            }
+        }
+        else
+        {
+            StatusLine(FontAwesomeIcon.CheckCircle, Ui.Good, $"You have every part of this {what}.");
+        }
+
+        // gear is only a heads-up: it doesn't stop anything from being applied
+        if (gear.Count > 0)
+        {
+            StatusLine(FontAwesomeIcon.Tshirt, Ui.Warn,
+                gear.Count == 1 ? "1 gear piece isn't in your collection." : $"{gear.Count} gear pieces aren't in your collection.");
+            if (ImGui.IsItemHovered())
+            {
+                using var tip = ImRaii.Tooltip();
+                DrawMissingList(gear, "Not in your inventory, armoury, glamour dresser or armoire:");
+            }
+        }
+
+        ImGui.TextColored(Ui.Dim, "Hold Ctrl when you click Apply to choose which parts to use.");
+    }
+
+    private static void StatusLine(FontAwesomeIcon icon, Vector4 color, string text)
+    {
+        using (ImRaii.Group())
+        {
+            Ui.Icon(icon, color);
+            ImGui.SameLine();
+            ImGui.TextUnformatted(text);
+        }
+    }
 
     /// <summary>Small list of missing things for a tooltip: icon, name, kind.</summary>
     public void DrawMissingList(IReadOnlyList<PartInfo> missing, string? title = null)
@@ -69,7 +122,7 @@ public sealed class PlateItems(
         foreach (var group in groups)
         {
             var known = group.Rows.Count(r => r.Own.State != OwnState.Unknown);
-            Ui.Section(group.Title, known > 0 ? $"{group.Have}/{known}" : null);
+            Ui.Section(group.Title, known > 0 ? $"{group.Have} of {known} owned" : null);
             DrawRows(group);
         }
 
