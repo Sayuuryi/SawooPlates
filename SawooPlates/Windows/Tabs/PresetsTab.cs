@@ -327,25 +327,22 @@ public sealed class PresetsTab(
         ImGui.Separator();
         ImGui.Spacing();
 
+        Ui.DetailColumns("Presets", () => DrawVisual(preset), () => plateItems.Draw(AsCapture(preset), preset.Preset!, showGearNote: false));
+    }
+
+    /// <summary>The plate (or the portrait alone), with camera and lighting under it.</summary>
+    private void DrawVisual(SavedPreset preset)
+    {
         if (preset.Plate is { } plateDesign)
         {
-            plateRenderer.Draw(plateDesign, preset.Preset!, thumbnails, preset.Id, ImGui.GetContentRegionAvail().X);
-            ImGui.Dummy(new Vector2(0, 8 * Ui.Scale));
+            plateRenderer.DrawFitted(plateDesign, preset.Preset!, thumbnails, preset.Id);
         }
         else
         {
-            var height = Math.Min(380 * Ui.Scale, ImGui.GetContentRegionAvail().Y);
-            using (ImRaii.Group())
-                portraitPanel.DrawPortrait(preset.Preset!, thumbnails, preset.Id, height);
-
-            ImGui.SameLine(0, 14 * Ui.Scale);
+            var height = Math.Clamp(ImGui.GetWindowHeight() * 0.6f, 160 * Ui.Scale, 380 * Ui.Scale);
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + Math.Max(0, (ImGui.GetContentRegionAvail().X - height * 0.6f) / 2f));
+            portraitPanel.DrawPortrait(preset.Preset!, thumbnails, preset.Id, height);
         }
-
-        using var items = ImRaii.Child("##Items", new Vector2(-1, -1), false);
-        if (!items.Success)
-            return;
-
-        plateItems.Draw(AsCapture(preset), preset.Preset!, showGearNote: false);
 
         ImGui.Spacing();
         if (ImGui.CollapsingHeader("Camera and lighting"))

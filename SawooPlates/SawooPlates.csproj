@@ -2,7 +2,7 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <!-- Manifest -->
   <PropertyGroup>
-    <Version>0.9.10.0</Version>
+    <Version>0.9.11.0</Version>
     <Name>Sawoo Plates</Name>
     <Author>Sayuuryi</Author>
     <Punchline>A few extra tools for the Portrait Editor.</Punchline>

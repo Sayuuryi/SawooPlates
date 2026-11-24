@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.11.0]
+
+### Recent and Presets
+- The plate and its parts sit side by side, so everything is visible without scrolling
+- The plate keeps a comfortable size instead of growing with the window
+- Narrow windows stack them instead
+
 ## [0.9.10.0]
 
 ### Fixes

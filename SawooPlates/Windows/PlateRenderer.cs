@@ -14,12 +14,27 @@ public sealed class PlateRenderer(ITextureProvider textures, ExcelService excel)
 
     private readonly record struct Layer(uint IconId, float X, float Y, float W, float H, bool IsPortrait = false);
 
-    public void Draw(PlateDesignData plate, PortraitPresetData preset, ThumbnailService thumbnails, Guid imageId,
-        float width, bool frameKnown = true, bool decorationKnown = true)
+    /// <summary>
+    /// Draws the plate as large as fits: the full width, but at most about half the visible height,
+    /// centred, so the parts below it keep their normal size whatever shape the window has.
+    /// </summary>
+    public void DrawFitted(PlateDesignData plate, PortraitPresetData preset, ThumbnailService thumbnails, Guid imageId,
+        bool frameKnown = true, bool decorationKnown = true)
     {
-        var layers = BuildLayers(plate);
+        var (minX, minY, maxX, maxY) = Bounds(BuildLayers(plate));
+        var aspect = (maxX - minX) / (maxY - minY);
 
-        // bounds: the plate itself plus every part that is drawn
+        var available = ImGui.GetContentRegionAvail().X;
+        var maxHeight = Math.Clamp(ImGui.GetWindowHeight() * 0.5f, 160 * Ui.Scale, 420 * Ui.Scale);
+        var width = Math.Min(available, maxHeight * aspect);
+
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (available - width) / 2f);
+        Draw(plate, preset, thumbnails, imageId, width, frameKnown, decorationKnown);
+    }
+
+    /// <summary>The plate itself plus every part that is drawn.</summary>
+    private static (float MinX, float MinY, float MaxX, float MaxY) Bounds(List<Layer> layers)
+    {
         float minX = 0, minY = 0, maxX = PlateW, maxY = PlateH;
         foreach (var l in layers)
         {
@@ -28,6 +43,15 @@ public sealed class PlateRenderer(ITextureProvider textures, ExcelService excel)
             maxX = Math.Max(maxX, l.X + l.W);
             maxY = Math.Max(maxY, l.Y + l.H);
         }
+
+        return (minX, minY, maxX, maxY);
+    }
+
+    public void Draw(PlateDesignData plate, PortraitPresetData preset, ThumbnailService thumbnails, Guid imageId,
+        float width, bool frameKnown = true, bool decorationKnown = true)
+    {
+        var layers = BuildLayers(plate);
+        var (minX, minY, maxX, maxY) = Bounds(layers);
 
         var scale = width / (maxX - minX);
         var size = new Vector2(maxX - minX, maxY - minY) * scale;

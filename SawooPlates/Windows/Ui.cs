@@ -32,6 +32,36 @@ public static class Ui
         ImGui.Spacing();
     }
 
+    /// <summary>
+    /// Picture on the left and the parts list on the right, each scrolling on its own, so everything is visible
+    /// at once. Narrow windows get them stacked instead.
+    /// </summary>
+    public static void DetailColumns(string id, Action visual, Action parts)
+    {
+        var avail = ImGui.GetContentRegionAvail();
+        if (avail.X < 620 * Scale)
+        {
+            visual();
+            ImGui.Dummy(new Vector2(0, 8 * Scale));
+            parts();
+            return;
+        }
+
+        var left = MathF.Floor(avail.X * 0.5f);
+        using (var child = ImRaii.Child($"##{id}Visual", new Vector2(left, -1), false))
+        {
+            if (child)
+                visual();
+        }
+
+        ImGui.SameLine(0, 14 * Scale);
+        using (var child = ImRaii.Child($"##{id}Parts", new Vector2(-1, -1), false))
+        {
+            if (child)
+                parts();
+        }
+    }
+
     public static bool Button(FontAwesomeIcon icon, string text, bool disabled = false, string? tooltip = null)
     {
         bool clicked;

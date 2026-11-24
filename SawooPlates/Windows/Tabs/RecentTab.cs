@@ -380,28 +380,27 @@ public sealed class RecentTab(
         ImGui.Separator();
         ImGui.Spacing();
 
-        // the whole Adventurer Plate across the top (as wide as the window), the list of parts below it;
-        // without a plate design, the portrait on the left and the parts on the right
+        // plate on the left, parts on the right (stacked when the window is narrow)
+        Ui.DetailColumns("Recent", () => DrawVisual(capture), () =>
+        {
+            var gearPending = capture.Gear.Count == 0 && DateTimeOffset.UtcNow - capture.Time < TimeSpan.FromSeconds(5);
+            plateItems.Draw(capture, capture.Preset, capture.FrameKnown, capture.DecorationKnown, gearPending);
+        });
+    }
+
+    /// <summary>The plate (or the portrait alone), with camera and lighting under it.</summary>
+    private void DrawVisual(CapturedPortrait capture)
+    {
         if (capture.Plate is { } plateDesign)
         {
-            plateRenderer.Draw(plateDesign, capture.Preset, thumbnails, capture.Id, ImGui.GetContentRegionAvail().X, capture.FrameKnown, capture.DecorationKnown);
-            ImGui.Dummy(new Vector2(0, 8 * Ui.Scale));
+            plateRenderer.DrawFitted(plateDesign, capture.Preset, thumbnails, capture.Id, capture.FrameKnown, capture.DecorationKnown);
         }
         else
         {
-            var height = Math.Min(380 * Ui.Scale, ImGui.GetContentRegionAvail().Y);
-            using (ImRaii.Group())
-                portraitPanel.DrawPortrait(capture.Preset, thumbnails, capture.Id, height, capture.FrameKnown, capture.DecorationKnown);
-
-            ImGui.SameLine(0, 14 * Ui.Scale);
+            var height = Math.Clamp(ImGui.GetWindowHeight() * 0.6f, 160 * Ui.Scale, 380 * Ui.Scale);
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + Math.Max(0, (ImGui.GetContentRegionAvail().X - height * 0.6f) / 2f));
+            portraitPanel.DrawPortrait(capture.Preset, thumbnails, capture.Id, height, capture.FrameKnown, capture.DecorationKnown);
         }
-
-        using var items = ImRaii.Child("##Items", new Vector2(-1, -1), false);
-        if (!items.Success)
-            return;
-
-        var gearPending = capture.Gear.Count == 0 && DateTimeOffset.UtcNow - capture.Time < TimeSpan.FromSeconds(5);
-        plateItems.Draw(capture, capture.Preset, capture.FrameKnown, capture.DecorationKnown, gearPending);
 
         ImGui.Spacing();
         if (ImGui.CollapsingHeader("Camera and lighting"))
