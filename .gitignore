@@ -1,0 +1,20 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.rsuser
+.vs/
+.idea/
+.vscode/
+TestResults/
+*.trx
+packages/
+
+## Local-only notes
+CLAUDE.md
+.claude/
+
+## OS
+Thumbs.db
+.DS_Store

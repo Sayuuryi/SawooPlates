@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <!-- Manifest -->
+  <PropertyGroup>
+    <Version>0.6.0.0</Version>
+    <Name>Sawoo Plates</Name>
+    <Author>Sayuuryi</Author>
+    <Punchline>A few extra tools for the Portrait Editor.</Punchline>
+    <Description>Adds a small menu bar to the Portrait Editor: copy and paste preset codes, a preset library with thumbnails and tags, finer camera, eye and head controls, and an alignment grid.
+
+It also tells you when your gear no longer matches your portrait.</Description>
+    <RepoUrl>https://github.com/Sayuuryi/SawooPlates</RepoUrl>
+    <IconUrl>https://raw.githubusercontent.com/Sayuuryi/SawooPlates/main/SawooPlates/Assets/icon.png</IconUrl>
+    <Tags>portrait;portrait editor;preset;banner</Tags>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="TerraFX.Interop.Windows" Private="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SawooPlates.Core\SawooPlates.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Translations.json" LogicalName="SawooPlates.Translations.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\icon.png" Link="images\icon.png" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+</Project>

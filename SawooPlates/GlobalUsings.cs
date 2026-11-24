@@ -1,0 +1,16 @@
+global using System;
+global using System.Collections.Generic;
+global using System.Linq;
+global using System.Numerics;
+global using Dalamud.Bindings.ImGui;
+global using Dalamud.Interface;
+global using Dalamud.Interface.Utility;
+global using Dalamud.Interface.Utility.Raii;
+global using Dalamud.Plugin;
+global using Dalamud.Plugin.Services;
+global using Lumina.Excel.Sheets;
+global using Microsoft.Extensions.DependencyInjection;
+global using SawooPlates.Common;
+global using SawooPlates.Core.Presets;
+global using SawooPlates.Core.Models;
+global using Action = System.Action;

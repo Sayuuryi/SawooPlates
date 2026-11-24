@@ -1,0 +1,8 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+  </Configurations>
+  <Project Path="SawooPlates/SawooPlates.csproj" />
+  <Project Path="SawooPlates.Core/SawooPlates.Core.csproj" />
+  <Project Path="SawooPlates.Tests/SawooPlates.Tests.csproj" />
+</Solution>
