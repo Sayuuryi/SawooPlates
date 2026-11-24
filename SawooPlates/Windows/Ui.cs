@@ -55,6 +55,29 @@ public static class Ui
         return clicked && !disabled;
     }
 
+    /// <summary>
+    /// Trash button that only works while Ctrl is held, so nothing gets deleted by a stray click.
+    /// Turns red while Ctrl is down.
+    /// </summary>
+    public static bool CtrlDeleteButton(string id, string what, string? text = null)
+    {
+        var ctrl = ImGui.GetIO().KeyCtrl;
+        bool clicked;
+
+        using (ImRaii.PushId(id))
+        using (ImRaii.PushColor(ImGuiCol.Text, Bad, ctrl))
+        {
+            clicked = text == null
+                ? ImGuiComponents.IconButton(FontAwesomeIcon.Trash)
+                : ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Trash, text);
+        }
+
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip(ctrl ? what : $"{what}\nHold Ctrl and click.");
+
+        return clicked && ctrl;
+    }
+
     public static void Icon(FontAwesomeIcon icon, Vector4? color = null)
     {
         using (ImRaii.PushColor(ImGuiCol.Text, color ?? Vector4.One, color != null))

@@ -74,15 +74,15 @@ public sealed unsafe class PlateCaptureButton : Window
     {
         _size = ImGui.GetWindowSize();
 
-        if (Ui.Button(FontAwesomeIcon.Save, "Save plate", tooltip: "Keep this portrait and plate design in Recent and see what's on it."))
-            ShowDetails();
+        if (Ui.Button(FontAwesomeIcon.Save, "Save plate", tooltip: "Save this portrait and plate design as a preset."))
+            SavePlate();
 
         ImGui.SameLine();
         if (Ui.Button(FontAwesomeIcon.Copy, "Copy code", tooltip: "Keep this plate in Recent and copy its portrait code."))
             CopyPortrait();
     }
 
-    private void ShowDetails()
+    private void SavePlate()
     {
         _framework.RunOnFrameworkThread(() =>
         {
@@ -93,7 +93,8 @@ public sealed unsafe class PlateCaptureButton : Window
                 return;
             }
 
-            _services.GetRequiredService<MainWindow>().ShowCapture(capture.Id);
+            var preset = _actions.SaveAsPreset(capture, capture.DefaultPresetName);
+            _services.GetRequiredService<MainWindow>().ShowPreset(preset.Id);
         });
     }
 

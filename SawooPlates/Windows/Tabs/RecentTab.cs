@@ -19,18 +19,17 @@ public sealed class RecentTab(
     private CaptureSource? _sourceFilter;
     private byte _jobFilter;
     private SortMode _sort = SortMode.Newest;
-    private Guid? _selectedId;
+    private readonly ListSelection _selection = new();
     private bool _scrollToSelected;
+    private List<Guid> _order = [];
 
     private string _saveName = string.Empty;
     private bool _openSavePopup;
-    private bool _confirmClear;
-    private bool _confirmDelete;
 
     /// <summary>Selects an entry, e.g. when opened from the plate button.</summary>
     public void Select(Guid id)
     {
-        _selectedId = id;
+        _selection.Select(id);
         _search = string.Empty;
         _sourceFilter = null;
         _jobFilter = 0;
@@ -49,8 +48,9 @@ public sealed class RecentTab(
         }
 
         var filtered = Filter(entries).ToList();
-        var selected = filtered.FirstOrDefault(e => e.Id == _selectedId) ?? filtered.FirstOrDefault();
-        _selectedId = selected?.Id;
+        _selection.Keep(filtered.Select(e => e.Id));
+        var selected = filtered.FirstOrDefault(e => e.Id == _selection.Current) ?? filtered.FirstOrDefault();
+        _selection.Current = selected?.Id;
 
         using (var left = ImRaii.Child("##RecentLeft", new Vector2(270 * Ui.Scale, -1), false))
         {
@@ -70,7 +70,41 @@ public sealed class RecentTab(
             return;
         }
 
-        DrawDetail(selected);
+        if (_selection.IsMulti)
+            DrawMulti(filtered);
+        else
+            DrawDetail(selected);
+    }
+
+    private void DrawMulti(List<CapturedPortrait> filtered)
+    {
+        var marked = filtered.Where(e => _selection.Marked.Contains(e.Id)).ToList();
+
+        ImGui.TextColored(Ui.Accent, $"{marked.Count} plates selected");
+        ImGui.TextColored(Ui.Dim, "Ctrl+click to add or remove, Shift+click to select a range.");
+        ImGui.Spacing();
+
+        if (Ui.CtrlDeleteButton("DeleteMarked", $"Remove {marked.Count} plates from Recent", "Remove selected"))
+        {
+            foreach (var entry in marked)
+                captureService.Remove(entry.Id);
+            _selection.ClearMarked();
+            _selection.Current = null;
+        }
+
+        ImGui.SameLine();
+        if (Ui.Button(FontAwesomeIcon.Times, "Clear selection"))
+            _selection.ClearMarked();
+
+        Ui.Section("Selected");
+        foreach (var entry in marked)
+        {
+            Ui.JobIcon(textures, entry.JobId, ImGui.GetTextLineHeight());
+            ImGui.SameLine();
+            ImGui.TextUnformatted(entry.Name);
+            ImGui.SameLine();
+            ImGui.TextColored(Ui.Dim, $"{entry.WorldName} · {Ui.TimeAgo(entry.Time)}");
+        }
     }
 
     // ---------------------------------------------------------------- list
@@ -122,6 +156,7 @@ public sealed class RecentTab(
         {
             if (list)
             {
+                _order = filtered.Select(e => e.Id).ToList();
                 foreach (var entry in filtered)
                     DrawListRow(entry);
             }
@@ -136,10 +171,12 @@ public sealed class RecentTab(
         ImGui.TextColored(Ui.Dim, $"{filtered.Count} of {all.Count}");
 
         ImGui.SameLine(ImGui.GetContentRegionAvail().X + ImGui.GetCursorPosX() - ImGui.GetFrameHeight());
-        if (Ui.IconButton("ClearAll", FontAwesomeIcon.Trash, "Clear Recent"))
-            _confirmClear = true;
-
-        DrawClearConfirm();
+        if (Ui.CtrlDeleteButton("ClearAll", "Remove every plate from Recent. Saved presets stay."))
+        {
+            captureService.ClearAll();
+            _selection.ClearMarked();
+            _selection.Current = null;
+        }
     }
 
     private void DrawListRow(CapturedPortrait entry)
@@ -148,10 +185,10 @@ public sealed class RecentTab(
 
         var height = 40 * Ui.Scale;
         var start = ImGui.GetCursorPos();
-        var isSelected = entry.Id == _selectedId;
+        var isSelected = _selection.IsSelected(entry.Id);
 
         if (ImGui.Selectable("##Row", isSelected, ImGuiSelectableFlags.None, new Vector2(0, height)))
-            _selectedId = entry.Id;
+            _selection.Click(entry.Id, _order);
 
         if (ImGui.IsItemHovered())
             DrawRowTooltip(entry);
@@ -345,11 +382,13 @@ public sealed class RecentTab(
             actions.CopyCode(capture.Preset, capture.Name);
 
         ImGui.SameLine(ImGui.GetContentRegionAvail().X + ImGui.GetCursorPosX() - ImGui.GetFrameHeight());
-        if (Ui.IconButton("Delete", FontAwesomeIcon.Trash, "Remove from Recent"))
-            _confirmDelete = true;
+        if (Ui.CtrlDeleteButton("Delete", "Remove from Recent"))
+        {
+            captureService.Remove(capture.Id);
+            _selection.Current = null;
+        }
 
         DrawSavePopup(capture);
-        DrawDeleteConfirm(capture);
     }
 
     private void DrawSavePopup(CapturedPortrait capture)
@@ -393,62 +432,4 @@ public sealed class RecentTab(
             ImGui.CloseCurrentPopup();
     }
 
-    private void DrawDeleteConfirm(CapturedPortrait capture)
-    {
-        const string title = "Remove from Recent?##DeleteCapture";
-
-        if (_confirmDelete)
-        {
-            ImGui.OpenPopup(title);
-            _confirmDelete = false;
-        }
-
-        ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f));
-        using var popup = ImRaii.PopupModal(title, ImGuiWindowFlags.AlwaysAutoResize);
-        if (!popup)
-            return;
-
-        ImGui.TextUnformatted($"Remove {capture.Name}'s portrait from Recent?");
-        ImGui.Spacing();
-
-        if (ImGui.Button("Remove", new Vector2(120 * Ui.Scale, 0)))
-        {
-            captureService.Remove(capture.Id);
-            _selectedId = null;
-            ImGui.CloseCurrentPopup();
-        }
-
-        ImGui.SameLine();
-        if (ImGui.Button("Cancel", new Vector2(120 * Ui.Scale, 0)))
-            ImGui.CloseCurrentPopup();
-    }
-
-    private void DrawClearConfirm()
-    {
-        const string title = "Clear Recent?##ClearRecent";
-
-        if (_confirmClear)
-        {
-            ImGui.OpenPopup(title);
-            _confirmClear = false;
-        }
-
-        ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f));
-        using var popup = ImRaii.PopupModal(title, ImGuiWindowFlags.AlwaysAutoResize);
-        if (!popup)
-            return;
-
-        ImGui.TextUnformatted("Remove every portrait from Recent? Saved presets stay.");
-        ImGui.Spacing();
-
-        if (ImGui.Button("Clear", new Vector2(120 * Ui.Scale, 0)))
-        {
-            captureService.ClearAll();
-            ImGui.CloseCurrentPopup();
-        }
-
-        ImGui.SameLine();
-        if (ImGui.Button("Cancel", new Vector2(120 * Ui.Scale, 0)))
-            ImGui.CloseCurrentPopup();
-    }
 }

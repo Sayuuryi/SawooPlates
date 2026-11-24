@@ -44,6 +44,15 @@ public sealed class PortraitActions(
     {
         var config = pluginConfig.PortraitEditor;
 
+        // the same portrait and plate design saved before: reuse it
+        var code = capture.Preset.ToExportedString();
+        var existing = config.Presets.FirstOrDefault(p => p.Preset?.ToExportedString() == code && SamePlate(p.Plate, capture.Plate));
+        if (existing != null)
+        {
+            captureService.Notify($"Already saved as \"{existing.Name}\".");
+            return existing;
+        }
+
         var tag = config.PresetTags.FirstOrDefault(t => t.Name == CapturedTagName);
         if (tag == null)
         {
@@ -71,6 +80,15 @@ public sealed class PortraitActions(
 
         captureService.Notify(textService.Translate("SawooPlates.Notification.SavedAsPreset", preset.Name));
         return preset;
+    }
+
+    private static bool SamePlate(PlateDesignData? a, PlateDesignData? b)
+    {
+        if (a == null || b == null)
+            return a == b;
+
+        return a.BasePlate == b.BasePlate && a.TopBorder == b.TopBorder && a.BottomBorder == b.BottomBorder
+            && a.PortraitOnRight == b.PortraitOnRight && a.Decorations.SequenceEqual(b.Decorations);
     }
 
     /// <summary>True when the Portrait Editor is open and a portrait can be applied to it.</summary>

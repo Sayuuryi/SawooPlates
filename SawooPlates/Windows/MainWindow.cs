@@ -45,6 +45,13 @@ public sealed class MainWindow : Window
         Open(Tab.Recent);
     }
 
+    /// <summary>Opens Presets with one preset selected.</summary>
+    public void ShowPreset(Guid id)
+    {
+        _presetsTab.Select(id);
+        Open(Tab.Presets);
+    }
+
     public override void Draw()
     {
         using var tabBar = ImRaii.TabBar("##Tabs");

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.3.0]
+
+### Lists
+- Select several entries with Ctrl+click, or a range with Shift+click, and delete them together
+- Deleting needs Ctrl+click, so nothing is removed by a stray click
+
+### Presets
+- Saving the same portrait and plate design twice reuses the existing preset
+
 ## [0.9.2.0]
 
 ### Recent

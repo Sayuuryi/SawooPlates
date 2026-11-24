@@ -16,9 +16,9 @@ public sealed class PresetsTab(
 {
     private string _search = string.Empty;
     private Guid? _tagFilter;
-    private Guid? _selectedId;
+    private readonly ListSelection _selection = new();
+    private List<Guid> _order = [];
 
-    private SavedPreset? _pendingDelete;
     private SavedPreset? _editing;
     private string _editName = string.Empty;
     private readonly HashSet<Guid> _editTags = [];
@@ -42,8 +42,9 @@ public sealed class PresetsTab(
             .Where(p => string.IsNullOrWhiteSpace(_search) || p.Name.Contains(_search.Trim(), StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        var selected = presets.FirstOrDefault(p => p.Id == _selectedId) ?? presets.FirstOrDefault();
-        _selectedId = selected?.Id;
+        _selection.Keep(presets.Select(p => p.Id));
+        var selected = presets.FirstOrDefault(p => p.Id == _selection.Current) ?? presets.FirstOrDefault();
+        _selection.Current = selected?.Id;
 
         using (var left = ImRaii.Child("##PresetsLeft", new Vector2(270 * Ui.Scale, -1), false))
         {
@@ -59,13 +60,14 @@ public sealed class PresetsTab(
             {
                 if (selected == null)
                     Ui.EmptyState(FontAwesomeIcon.Search, "No matches", "Nothing matches the search or tag.");
+                else if (_selection.IsMulti)
+                    DrawMulti(presets);
                 else
                     DrawDetail(selected);
             }
         }
 
         DrawEditPopup();
-        DrawDeleteConfirm();
     }
 
     private void DrawList(List<SavedPreset> presets)
@@ -96,6 +98,7 @@ public sealed class PresetsTab(
         {
             if (list)
             {
+                _order = presets.Select(p => p.Id).ToList();
                 foreach (var preset in presets)
                     DrawListRow(preset);
             }
@@ -111,8 +114,8 @@ public sealed class PresetsTab(
         var height = 44 * Ui.Scale;
         var start = ImGui.GetCursorPos();
 
-        if (ImGui.Selectable("##Row", preset.Id == _selectedId, ImGuiSelectableFlags.None, new Vector2(0, height)))
-            _selectedId = preset.Id;
+        if (ImGui.Selectable("##Row", _selection.IsSelected(preset.Id), ImGuiSelectableFlags.None, new Vector2(0, height)))
+            _selection.Click(preset.Id, _order);
 
         if (ImGui.IsItemHovered())
             DrawRowTooltip(preset);
@@ -172,6 +175,39 @@ public sealed class PresetsTab(
     private string TagNames(SavedPreset preset)
         => string.Join(", ", preset.Tags.Select(id => Config.PresetTags.FirstOrDefault(t => t.Id == id)?.Name).Where(n => n != null));
 
+    /// <summary>Selects one preset, e.g. right after it was saved from a plate.</summary>
+    public void Select(Guid id)
+    {
+        _search = string.Empty;
+        _tagFilter = null;
+        _selection.Select(id);
+    }
+
+    private void DrawMulti(List<SavedPreset> presets)
+    {
+        var marked = presets.Where(p => _selection.Marked.Contains(p.Id)).ToList();
+
+        ImGui.TextColored(Ui.Accent, $"{marked.Count} presets selected");
+        ImGui.TextColored(Ui.Dim, "Ctrl+click to add or remove, Shift+click to select a range.");
+        ImGui.Spacing();
+
+        if (Ui.CtrlDeleteButton("DeleteMarked", $"Delete {marked.Count} presets", "Delete selected"))
+        {
+            foreach (var preset in marked)
+                actions.DeletePreset(preset);
+            _selection.ClearMarked();
+            _selection.Current = null;
+        }
+
+        ImGui.SameLine();
+        if (Ui.Button(FontAwesomeIcon.Times, "Clear selection"))
+            _selection.ClearMarked();
+
+        Ui.Section("Selected");
+        foreach (var preset in marked)
+            ImGui.BulletText(preset.Name);
+    }
+
     private void DrawDetail(SavedPreset preset)
     {
         ImGui.TextColored(Ui.Accent, preset.Name);
@@ -218,8 +254,11 @@ public sealed class PresetsTab(
         }
 
         ImGui.SameLine(ImGui.GetContentRegionAvail().X + ImGui.GetCursorPosX() - ImGui.GetFrameHeight());
-        if (Ui.IconButton("Delete", FontAwesomeIcon.Trash, "Delete preset"))
-            _pendingDelete = preset;
+        if (Ui.CtrlDeleteButton("Delete", "Delete preset"))
+        {
+            actions.DeletePreset(preset);
+            _selection.Current = null;
+        }
 
         var missing = plateItems.CountMissing(null, preset.Preset!, true, true);
         ImGui.Spacing();
@@ -330,34 +369,4 @@ public sealed class PresetsTab(
         }
     }
 
-    private void DrawDeleteConfirm()
-    {
-        const string title = "Delete preset?##DeletePresetMain";
-
-        if (_pendingDelete != null && !ImGui.IsPopupOpen(title))
-            ImGui.OpenPopup(title);
-
-        ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f));
-        using var popup = ImRaii.PopupModal(title, ImGuiWindowFlags.AlwaysAutoResize);
-        if (!popup || _pendingDelete == null)
-            return;
-
-        ImGui.TextUnformatted($"Delete \"{_pendingDelete.Name}\"? This can't be undone.");
-        ImGui.Spacing();
-
-        if (ImGui.Button("Delete", new Vector2(120 * Ui.Scale, 0)))
-        {
-            actions.DeletePreset(_pendingDelete);
-            _pendingDelete = null;
-            _selectedId = null;
-            ImGui.CloseCurrentPopup();
-        }
-
-        ImGui.SameLine();
-        if (ImGui.Button("Cancel", new Vector2(120 * Ui.Scale, 0)))
-        {
-            _pendingDelete = null;
-            ImGui.CloseCurrentPopup();
-        }
-    }
 }
