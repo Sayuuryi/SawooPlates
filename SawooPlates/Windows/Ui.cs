@@ -123,6 +123,21 @@ public static class Ui
     }
 
     /// <summary>Draws a game texture scaled to fit inside a square box, centered, keeping its aspect ratio.</summary>
+    /// <summary>Draws a game image as large as fits in the box, keeping its shape.</summary>
+    public static void ImageFit(ITextureProvider textures, uint iconId, Vector2 box)
+    {
+        if (iconId == 0
+            || !textures.TryGetFromGameIcon(new GameIconLookup(iconId), out var texture)
+            || !texture.TryGetWrap(out var wrap, out _))
+        {
+            ImGui.Dummy(box);
+            return;
+        }
+
+        var scale = Math.Min(box.X / wrap.Width, box.Y / wrap.Height);
+        ImGui.Image(wrap.Handle, new Vector2(wrap.Width, wrap.Height) * scale);
+    }
+
     public static void IconFit(ITextureProvider textures, uint iconId, float box)
     {
         var start = ImGui.GetCursorPos();

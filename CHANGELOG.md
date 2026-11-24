@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.7.0]
+
+### Presets
+- Plate previews show every part in full, nothing is cut at the edges
+- Missing parts name the exact quest or duty that unlocks them
+- Right-click a part or item to open it on Garland Tools
+- Wider previews for borders and frames in the tooltips
+
 ## [0.9.6.0]
 
 ### Presets

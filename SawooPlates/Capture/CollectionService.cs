@@ -12,7 +12,7 @@ public enum OwnState
 }
 
 /// <summary>Whether the player has something, where it is, and how to get it when missing.</summary>
-public readonly record struct Ownership(OwnState State, string? Where = null, string? Hint = null)
+public readonly record struct Ownership(OwnState State, string? Where = null, string? Hint = null, string? Link = null)
 {
     public static Ownership Unknown(string? why = null) => new(OwnState.Unknown, Hint: why);
 }
@@ -53,13 +53,56 @@ public sealed unsafe class CollectionService(ExcelService excelService, BannerSe
         if (conditionId == null)
             return Ownership.Unknown();
 
+        var (source, link) = GetUnlockSource(conditionId.Value);
         return bannerService.TryGetBannerConditionUnlocked(conditionId.Value) switch
         {
-            true => new Ownership(OwnState.Have),
-            false => new Ownership(OwnState.Missing, Hint: GetUnlockHint(conditionId.Value)),
-            null => Ownership.Unknown("Still loading. Hover again in a moment."),
+            true => new Ownership(OwnState.Have, Link: link),
+            false => new Ownership(OwnState.Missing, Hint: source ?? GetUnlockHint(conditionId.Value), Link: link),
+            null => Ownership.Unknown("Still loading. Hover again in a moment.") with { Link = link },
         };
     }
+
+    private Dictionary<uint, ContentFinderCondition>? _dutyByInstance;
+
+    /// <summary>
+    /// The exact quest or duty that unlocks a part, read from BannerCondition:
+    /// prerequisite type 1 is a quest, types 3 and 4 are an InstanceContent (unlock or clear the duty).
+    /// The link points to the same quest or duty on Garland Tools (same ids as the game).
+    /// </summary>
+    public (string? Text, string? Link) GetUnlockSource(uint conditionId)
+    {
+        if (!excelService.TryGetRow<BannerCondition>(conditionId, out var condition))
+            return (null, null);
+
+        switch (condition.PrerequisiteType)
+        {
+            case 1 when excelService.TryGetRow<Quest>(condition.Prerequisite.RowId, out var quest) && !quest.Name.IsEmpty:
+                return ($"Complete the quest \"{quest.Name.ToString().Trim()}\".", Garland.Quest(quest.RowId));
+
+            case 3 or 4:
+                _dutyByInstance ??= excelService.GetSheet<ContentFinderCondition>()
+                    .Where(c => c.ContentLinkType == 1 && c.Content.RowId != 0)
+                    .GroupBy(c => c.Content.RowId)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                if (_dutyByInstance.TryGetValue(condition.Prerequisite.RowId, out var duty) && !duty.Name.IsEmpty)
+                {
+                    var name = Capitalize(duty.Name.ToString());
+                    return (condition.PrerequisiteType == 3 ? $"Unlock {name}." : $"Clear {name}.", Garland.Instance(duty.RowId));
+                }
+
+                break;
+        }
+
+        // some conditions only name a quest in the first criteria
+        if (condition.UnlockType1 == 1 && excelService.TryGetRow<Quest>(condition.UnlockCriteria1[0].RowId, out var q) && !q.Name.IsEmpty)
+            return ($"Complete the quest \"{q.Name.ToString().Trim()}\".", Garland.Quest(q.RowId));
+
+        return (null, null);
+    }
+
+    private static string Capitalize(string text)
+        => text.Length > 0 && char.IsLower(text[0]) ? char.ToUpperInvariant(text[0]) + text[1..] : text;
 
     /// <summary>The game's own "how to obtain" text for a BannerCondition.</summary>
     public string? GetUnlockHint(uint conditionId)

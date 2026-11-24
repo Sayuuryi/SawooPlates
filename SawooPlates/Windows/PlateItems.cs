@@ -123,7 +123,11 @@ public sealed class PlateItems(
             // whole row is the hover target for the details tooltip
             var rowMax = new Vector2(ImGui.GetWindowPos().X + ImGui.GetWindowContentRegionMax().X, rowMin.Y + icon);
             if (ImGui.IsWindowHovered() && ImGui.IsMouseHoveringRect(rowMin, rowMax))
+            {
                 DrawTooltip(row);
+                if (row.Own.Link != null && ImGui.IsMouseClicked(ImGuiMouseButton.Right))
+                    Dalamud.Utility.Util.OpenLink(row.Own.Link);
+            }
         }
     }
 
@@ -135,7 +139,10 @@ public sealed class PlateItems(
         var preview = row.PreviewId != 0 ? row.PreviewId : row.IconId;
         if (preview != 0)
         {
-            Ui.IconFit(textures, preview, row.PreviewId != 0 ? 160 * Ui.Scale : 64 * Ui.Scale);
+            if (row.PreviewId != 0)
+                Ui.ImageFit(textures, preview, new Vector2(280, 160) * Ui.Scale);
+            else
+                Ui.IconFit(textures, preview, 64 * Ui.Scale);
             ImGui.Spacing();
         }
 
@@ -177,6 +184,12 @@ public sealed class PlateItems(
         {
             using (ImRaii.TextWrapPos(wrap))
                 ImGui.TextUnformatted(row.Own.Hint);
+        }
+
+        if (row.Own.Link != null)
+        {
+            ImGui.Spacing();
+            ImGui.TextColored(Ui.Dim, "Right-click to open it on Garland Tools.");
         }
     }
 
@@ -269,7 +282,7 @@ public sealed class PlateItems(
 
                 var level = item.LevelItem.RowId;
                 var extra = level > 1 ? $"Item level {level}" : null;
-                rows.Add(new Row(item.Icon, item.Name.ToString(), kind, collection.Item(piece.ItemId), dyes, Extra: extra));
+                rows.Add(new Row(item.Icon, item.Name.ToString(), kind, collection.Item(piece.ItemId) with { Link = Garland.Item(piece.ItemId) }, dyes, Extra: extra));
             }
 
             if (rows.Count > 0)
