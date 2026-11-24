@@ -1,14 +1,16 @@
 name: Build
 
-# Releases:
+# Releases (Sawoo Plates, built here):
 #   tag vX.Y.Z.W-testing  -> testing version (only for people with "Receive plugin testing versions" on)
 #   tag vX.Y.Z.W          -> stable version for everyone
+# Releases of prebuilt plugins in plugins/<InternalName>/:
+#   tag <InternalName>-vX.Y.Z.W[-testing]
 # Tag the same commit with the stable tag once the testing version is good.
 
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ]
+    tags: [ 'v*', '*-v*' ]
     paths-ignore: [ 'repo.json' ]
   pull_request:
   workflow_dispatch:
@@ -23,6 +25,7 @@ env:
 
 jobs:
   build:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') || startsWith(github.ref_name, 'v') }}
     runs-on: windows-2022
     steps:
       - name: Checkout
@@ -112,54 +115,71 @@ jobs:
       - name: Update repo.json
         shell: pwsh
         run: |
-          $manifest = Get-Content dist/SawooPlates.json -Raw | ConvertFrom-Json -AsHashtable
           $testing = '${{ steps.version.outputs.testing }}' -eq 'true'
           $version = '${{ steps.version.outputs.version }}'
           $url = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/latest.zip"
-
-          # keep entries of other plugins; replace or create ours
-          $entries = @()
-          if (Test-Path repo.json) { $entries = @(Get-Content repo.json -Raw | ConvertFrom-Json -AsHashtable) }
-          $entry = $entries | Where-Object { $_['InternalName'] -eq $manifest['InternalName'] } | Select-Object -First 1
-          $others = @($entries | Where-Object { $_['InternalName'] -ne $manifest['InternalName'] })
-
-          if ($testing) {
-            if ($null -eq $entry) {
-              # first release ever is a testing one: list it, but only testing users can install it
-              $entry = $manifest
-              $entry['IsTestingExclusive'] = $true
-              $entry['DownloadLinkInstall'] = $url
-              $entry['DownloadLinkUpdate'] = $url
-            }
-            $entry['TestingAssemblyVersion'] = $version
-            $entry['TestingDalamudApiLevel'] = $manifest['DalamudApiLevel']
-            $entry['DownloadLinkTesting'] = $url
-          }
-          else {
-            $testingVersion = if ($entry) { $entry['TestingAssemblyVersion'] } else { $null }
-            $testingUrl = if ($entry) { $entry['DownloadLinkTesting'] } else { $null }
-            $entry = $manifest
-            $entry['DownloadLinkInstall'] = $url
-            $entry['DownloadLinkUpdate'] = $url
-            # testing users get the stable build unless a newer testing build exists
-            if ($testingVersion -and ([version]$testingVersion -gt [version]$version)) {
-              $entry['TestingAssemblyVersion'] = $testingVersion
-              $entry['DownloadLinkTesting'] = $testingUrl
-            } else {
-              $entry['TestingAssemblyVersion'] = $version
-              $entry['DownloadLinkTesting'] = $url
-            }
-            $entry['TestingDalamudApiLevel'] = $manifest['DalamudApiLevel']
-            $entry.Remove('IsTestingExclusive')
-            $entry['Changelog'] = (Get-Content notes.md -Raw).Trim()
-          }
-          $entry['LastUpdate'] = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-
-          ConvertTo-Json @($others + $entry) -Depth 5 | Set-Content -Encoding utf8 repo.json
+          ./.github/scripts/Update-RepoJson.ps1 -ManifestPath dist/SawooPlates.json -DownloadUrl $url -Version $version -Testing $testing -NotesPath notes.md
 
           git config user.name  "$env:GIT_NAME"
           git config user.email "$env:GIT_EMAIL"
           git add repo.json
-          $label = if ($testing) { "$version testing" } else { $version }
+          $label = if ($testing) { "Sawoo Plates $version testing" } else { "Sawoo Plates $version" }
           git commit -m "Update repo.json for $label"
+          git push origin main
+
+  release-prebuilt:
+    if: ${{ startsWith(github.ref, 'refs/tags/') && !startsWith(github.ref_name, 'v') }}
+    runs-on: windows-2022
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Read tag
+        id: tag
+        shell: pwsh
+        run: |
+          if ('${{ github.ref_name }}' -notmatch '^(?<name>.+)-v(?<version>\d+(\.\d+){3})(?<testing>-testing)?$') { throw "Tag must look like Name-v1.2.3.4 or Name-v1.2.3.4-testing" }
+          $name = $Matches['name']; $version = $Matches['version']; $testing = [bool]$Matches['testing']
+          $dir = "plugins/$name"
+          if (-not (Test-Path "$dir/$name.json")) { throw "No plugin folder $dir with $name.json" }
+          $manifest = Get-Content "$dir/$name.json" -Raw | ConvertFrom-Json
+          if ($manifest.AssemblyVersion -ne $version) { throw "Tag version $version does not match $name.json ($($manifest.AssemblyVersion))" }
+          "name=$name" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "testing=$($testing.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          "dir=$dir" >> $env:GITHUB_OUTPUT
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $files = Get-ChildItem '${{ steps.tag.outputs.dir }}' -File | Where-Object { $_.Name -ne 'icon.png' }
+          Compress-Archive -Path $files.FullName -DestinationPath dist/latest.zip -Force
+          Copy-Item '${{ steps.tag.outputs.dir }}/${{ steps.tag.outputs.name }}.json' dist/
+
+      - name: Create release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $manifest = Get-Content 'dist/${{ steps.tag.outputs.name }}.json' -Raw | ConvertFrom-Json
+          $title = "$($manifest.Name) ${{ steps.tag.outputs.version }}"
+          $flags = @()
+          if ('${{ steps.tag.outputs.testing }}' -eq 'true') { $title += " (testing)"; $flags += '--prerelease' }
+          gh release create '${{ github.ref_name }}' dist/latest.zip 'dist/${{ steps.tag.outputs.name }}.json' --title $title --notes "$($manifest.Name) ${{ steps.tag.outputs.version }}" @flags
+
+      - name: Update repo.json
+        shell: pwsh
+        run: |
+          $testing = '${{ steps.tag.outputs.testing }}' -eq 'true'
+          $url = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/latest.zip"
+          ./.github/scripts/Update-RepoJson.ps1 -ManifestPath 'dist/${{ steps.tag.outputs.name }}.json' -DownloadUrl $url -Version '${{ steps.tag.outputs.version }}' -Testing $testing
+
+          git config user.name  "$env:GIT_NAME"
+          git config user.email "$env:GIT_EMAIL"
+          git add repo.json
+          git commit -m "Update repo.json for ${{ steps.tag.outputs.name }} ${{ github.ref_name }}"
           git push origin main

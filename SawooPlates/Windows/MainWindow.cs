@@ -85,7 +85,7 @@ public sealed class MainWindow : Window
         ImGui.Spacing();
         ImGui.Spacing();
         if (Ui.Button(FontAwesomeIcon.Globe, "GitHub"))
-            Util.OpenLink("https://github.com/Sayuuryi/SawooPlates");
+            Util.OpenLink("https://github.com/Sayuuryi/SawooPlugins");
     }
 
     private static void Command(string command, string text)

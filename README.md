@@ -1,26 +1,32 @@
-# Sawoo Plates
+# Sawoo Plugins
 
-<img src="SawooPlates/Assets/icon.png" width="96" align="right" alt="">
-
-A Dalamud plugin for FINAL FANTASY XIV, for people who spend too long in the Portrait Editor.
-
-It adds a small menu bar to the Portrait Editor:
-
-- Copy and paste preset codes, or import only the parts you want
-- A preset library with thumbnails and tags
-- Finer control over the camera, eye and head direction, and the animation frame
-- An alignment grid for lining up your shot
-- A heads-up when your gear no longer matches your portrait
+Dalamud plugins for FINAL FANTASY XIV by Sayuuryi.
 
 ## Install
 
 1. Open Dalamud Settings → Experimental.
 2. Under Custom Plugin Repositories, add
-   `https://raw.githubusercontent.com/Sayuuryi/SawooPlates/main/repo.json`
+   `https://raw.githubusercontent.com/Sayuuryi/SawooPlugins/main/repo.json`
    and click Save.
-3. Search for **Sawoo Plates** in the plugin installer.
+3. Search for the plugin in the plugin installer.
 
-Open it with `/sawooplates` or `/splates`.
+To try new versions before everyone else, right-click the plugin in the installer and turn on **Receive plugin testing versions**.
+
+## Plugins
+
+### Sawoo Plates
+
+<img src="SawooPlates/Assets/icon.png" width="80" align="right" alt="">
+
+A few extra tools for the Portrait Editor: copy and paste preset codes, a preset library with thumbnails and tags, finer camera, eye and head controls, an alignment grid, and a heads-up when your gear no longer matches your portrait.
+
+Open it with `/splates`, or `/splates config` for the settings.
+
+### Chibi Dancing Mad
+
+<img src="plugins/ChibiDancingMad/icon.png" width="80" align="right" alt="">
+
+Makes Dancing Mad Exdeath and Chaos smaller, with optional Penumbra redraw support.
 
 ## Credits
 
@@ -28,4 +34,4 @@ Game structures come from [FFXIVClientStructs](https://github.com/aers/FFXIVClie
 
 ## License
 
-[AGPL-3.0](LICENSE).
+Sawoo Plates is licensed under [AGPL-3.0](LICENSE).
