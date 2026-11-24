@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.14.0]
+
+### Recent and Presets
+- The plate has its own row at a fixed size, with camera and lighting next to it
+- Portrait, Plate and Gear are listed below the plate, side by side when there's room
+
 ## [0.9.13.0]
 
 ### Recent and Presets

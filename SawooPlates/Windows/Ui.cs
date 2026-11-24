@@ -33,29 +33,45 @@ public static class Ui
     }
 
     /// <summary>
-    /// Picture on the left at a fixed width, parts on the right taking the rest. Always side by side;
-    /// resizing the window only changes the right side.
+    /// Top row: the picture at a fixed size with <paramref name="beside"/> next to it. Below: everything else,
+    /// in an area that scrolls by itself. The window's size never changes the picture.
+    /// When there's no room next to the picture, <paramref name="beside"/> is drawn at the end of the lower area.
     /// </summary>
-    public static void DetailColumns(string id, float visualWidth, Action visual, Action parts)
+    public static void DetailLayout(string id, float visualWidth, Action visual, Action beside, Action below)
     {
         var gap = 14 * Scale;
+        var roomBeside = ImGui.GetContentRegionAvail().X - visualWidth - gap >= 220 * Scale;
 
-        using (var child = ImRaii.Child($"##{id}Visual", new Vector2(visualWidth, -1), false))
+        using (ImRaii.Group())
+            visual();
+
+        var visualHeight = ImGui.GetItemRectSize().Y;
+
+        if (roomBeside)
         {
+            ImGui.SameLine(0, gap);
+            using var child = ImRaii.Child($"##{id}Beside", new Vector2(-1, visualHeight), false);
             if (child)
-                visual();
+                beside();
         }
 
-        ImGui.SameLine(0, gap);
-        using (var child = ImRaii.Child($"##{id}Parts", new Vector2(-1, -1), false))
+        ImGui.Dummy(new Vector2(0, 6 * Scale));
+
+        using var lower = ImRaii.Child($"##{id}Below", new Vector2(-1, -1), false);
+        if (!lower)
+            return;
+
+        below();
+
+        if (!roomBeside)
         {
-            if (child)
-                parts();
+            ImGui.Spacing();
+            beside();
         }
     }
 
-    /// <summary>Width of the picture column: a fixed size, so it doesn't change when the window is resized.</summary>
-    public static float VisualWidth(bool hasPlate) => (hasPlate ? 420 : 240) * Scale;
+    /// <summary>Width of the picture: a fixed size, the same whatever the window size.</summary>
+    public static float VisualWidth(bool hasPlate) => (hasPlate ? 480 : 200) * Scale;
 
     public static bool Button(FontAwesomeIcon icon, string text, bool disabled = false, string? tooltip = null)
     {

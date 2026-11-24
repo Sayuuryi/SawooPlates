@@ -380,15 +380,22 @@ public sealed class RecentTab(
         ImGui.Separator();
         ImGui.Spacing();
 
-        // plate on the left, parts on the right (stacked when the window is narrow)
-        Ui.DetailColumns("Recent", Ui.VisualWidth(capture.Plate != null), () => DrawVisual(capture), () =>
-        {
-            var gearPending = capture.Gear.Count == 0 && DateTimeOffset.UtcNow - capture.Time < TimeSpan.FromSeconds(5);
-            plateItems.Draw(capture, capture.Preset, capture.FrameKnown, capture.DecorationKnown, gearPending);
-        });
+        // the plate with camera and lighting next to it; Portrait, Plate and Gear below
+        Ui.DetailLayout("Recent", Ui.VisualWidth(capture.Plate != null),
+            () => DrawVisual(capture),
+            () =>
+            {
+                Ui.Section("Camera and lighting");
+                portraitPanel.DrawValues(capture.Preset);
+            },
+            () =>
+            {
+                var gearPending = capture.Gear.Count == 0 && DateTimeOffset.UtcNow - capture.Time < TimeSpan.FromSeconds(5);
+                plateItems.Draw(capture, capture.Preset, capture.FrameKnown, capture.DecorationKnown, gearPending);
+            });
     }
 
-    /// <summary>The plate (or the portrait alone), with camera and lighting under it.</summary>
+    /// <summary>The plate (or the portrait alone) at a fixed size.</summary>
     private void DrawVisual(CapturedPortrait capture)
     {
         if (capture.Plate is { } plateDesign)
@@ -398,13 +405,8 @@ public sealed class RecentTab(
         else
         {
             var height = Ui.VisualWidth(false) / 0.6f; // portraits are 3:5
-            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + Math.Max(0, (ImGui.GetContentRegionAvail().X - height * 0.6f) / 2f));
             portraitPanel.DrawPortrait(capture.Preset, thumbnails, capture.Id, height, capture.FrameKnown, capture.DecorationKnown);
         }
-
-        ImGui.Spacing();
-        if (ImGui.CollapsingHeader("Camera and lighting"))
-            portraitPanel.DrawValues(capture.Preset);
     }
 
     private void DrawActions(CapturedPortrait capture)

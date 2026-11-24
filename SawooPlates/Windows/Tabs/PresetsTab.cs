@@ -327,10 +327,20 @@ public sealed class PresetsTab(
         ImGui.Separator();
         ImGui.Spacing();
 
-        Ui.DetailColumns("Presets", Ui.VisualWidth(preset.Plate != null), () => DrawVisual(preset), () => plateItems.Draw(AsCapture(preset), preset.Preset!, showGearNote: false));
+        Ui.DetailLayout("Presets", Ui.VisualWidth(preset.Plate != null),
+            () => DrawVisual(preset),
+            () =>
+            {
+                Ui.Section("Camera and lighting");
+                portraitPanel.DrawValues(preset.Preset!);
+            },
+            () =>
+            {
+                plateItems.Draw(AsCapture(preset), preset.Preset!, showGearNote: false);
+            });
     }
 
-    /// <summary>The plate (or the portrait alone), with camera and lighting under it.</summary>
+    /// <summary>The plate (or the portrait alone) at a fixed size.</summary>
     private void DrawVisual(SavedPreset preset)
     {
         if (preset.Plate is { } plateDesign)
@@ -340,13 +350,8 @@ public sealed class PresetsTab(
         else
         {
             var height = Ui.VisualWidth(false) / 0.6f; // portraits are 3:5
-            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + Math.Max(0, (ImGui.GetContentRegionAvail().X - height * 0.6f) / 2f));
             portraitPanel.DrawPortrait(preset.Preset!, thumbnails, preset.Id, height);
         }
-
-        ImGui.Spacing();
-        if (ImGui.CollapsingHeader("Camera and lighting"))
-            portraitPanel.DrawValues(preset.Preset!);
     }
 
     private void DrawEditPopup()

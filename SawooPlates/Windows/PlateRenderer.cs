@@ -14,13 +14,11 @@ public sealed class PlateRenderer(ITextureProvider textures, ExcelService excel)
 
     private readonly record struct Layer(uint IconId, float X, float Y, float W, float H, bool IsPortrait = false);
 
-    /// <summary>Draws the plate at <paramref name="width"/> (or narrower when there's less room), centred.</summary>
+    /// <summary>Draws the plate at <paramref name="width"/>, or narrower when there's less room.</summary>
     public void DrawFitted(PlateDesignData plate, PortraitPresetData preset, ThumbnailService thumbnails, Guid imageId,
         float width, bool frameKnown = true, bool decorationKnown = true)
     {
-        var available = ImGui.GetContentRegionAvail().X;
-        width = Math.Min(width, available);
-        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (available - width) / 2f);
+        width = Math.Min(width, ImGui.GetContentRegionAvail().X);
         Draw(plate, preset, thumbnails, imageId, width, frameKnown, decorationKnown);
     }
 

@@ -22,11 +22,11 @@ public sealed class MainWindow : Window
         _presetsTab = presetsTab;
         _settingsTab = settingsTab;
 
-        Size = new Vector2(1080, 660);
+        Size = new Vector2(1160, 760);
         SizeCondition = ImGuiCond.FirstUseEver;
         SizeConstraints = new WindowSizeConstraints
         {
-            MinimumSize = new Vector2(1000, 480),
+            MinimumSize = new Vector2(800, 600),
             MaximumSize = new Vector2(float.MaxValue, float.MaxValue),
         };
     }
