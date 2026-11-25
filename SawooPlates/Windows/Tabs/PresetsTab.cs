@@ -169,7 +169,7 @@ public sealed class PresetsTab(
         ImGui.TextColored(Ui.Accent, preset.Name);
         ImGui.Separator();
 
-        if (ImGui.MenuItem("Apply to my portrait", string.Empty, false, actions.CanApply))
+        if (ImGui.MenuItem("Apply to my portrait", string.Empty, false, actions.CanApplyOrOpen))
             actions.Apply(preset.Preset!, choose: false);
         if (ImGui.MenuItem("Copy code"))
             actions.CopyCode(preset.Preset!);

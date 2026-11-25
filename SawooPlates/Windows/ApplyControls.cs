@@ -34,7 +34,7 @@ public sealed class ApplyControls(
         var portraitMissing = Missing(plateItems.GetParts(null, preset, "Portrait", frameKnown, decorationKnown));
 
         // --- portrait
-        var canPortrait = actions.CanApply;
+        var canPortrait = actions.CanApplyOrOpen;
         if (Ui.Button(FontAwesomeIcon.Magic, "Apply to my portrait", !canPortrait))
         {
             if (ImGui.GetIO().KeyCtrl)
@@ -50,12 +50,14 @@ public sealed class ApplyControls(
             using var tip = ImRaii.Tooltip();
             if (canPortrait)
             {
-                ImGui.TextUnformatted("Applies this portrait to your Portrait Editor.");
+                ImGui.TextUnformatted(actions.CanApply
+                    ? "Applies this portrait to your Portrait Editor."
+                    : "Opens your Portrait Editor and applies this portrait.");
                 ImGui.TextColored(Ui.Dim, "Hold Ctrl while clicking to choose which parts to apply.");
             }
             else
             {
-                ImGui.TextUnformatted("Open your Portrait Editor first.");
+                ImGui.TextUnformatted("Your Portrait Editor can't be opened right now.");
             }
 
             plateItems.DrawMissingList(portraitMissing);

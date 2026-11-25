@@ -26,6 +26,11 @@ public static unsafe class OverlayStyle
             if (unit == null || unit == owner || !unit->IsVisible)
                 continue;
 
+            // HUD parts start with "_" (party list, duty list, nameplates...); they sit in front of everything in duties
+            var name = unit->NameString;
+            if (name.Length == 0 || name[0] == '_' || name == "NamePlate" || name.StartsWith("Fade", StringComparison.Ordinal))
+                continue;
+
             var inFront = unit->DepthLayer > ownerLayer || (unit->DepthLayer == ownerLayer && unit->DrawOrderIndex > ownerOrder);
             if (!inFront)
                 continue;
@@ -33,6 +38,11 @@ public static unsafe class OverlayStyle
             var unitMin = new Vector2(unit->X, unit->Y);
             var unitMax = unitMin + new Vector2(unit->GetScaledWidth(true), unit->GetScaledHeight(true));
             if (unitMax.X - unitMin.X < 1 || unitMax.Y - unitMin.Y < 1)
+                continue;
+
+            // full-screen layers (screen effects, cutscene bars) aren't windows either
+            var screen = ImGui.GetMainViewport().Size;
+            if (unitMax.X - unitMin.X >= screen.X * 0.9f && unitMax.Y - unitMin.Y >= screen.Y * 0.9f)
                 continue;
 
             if (unitMin.X < max.X && unitMax.X > min.X && unitMin.Y < max.Y && unitMax.Y > min.Y)

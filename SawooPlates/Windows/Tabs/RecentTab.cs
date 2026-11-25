@@ -266,7 +266,7 @@ public sealed class RecentTab(
         ImGui.TextColored(Ui.Accent, entry.Name);
         ImGui.Separator();
 
-        if (ImGui.MenuItem("Apply to my portrait", string.Empty, false, actions.CanApply))
+        if (ImGui.MenuItem("Apply to my portrait", string.Empty, false, actions.CanApplyOrOpen))
             actions.Apply(entry, choose: false);
         if (ImGui.MenuItem("Save as preset"))
             OpenSave(entry);

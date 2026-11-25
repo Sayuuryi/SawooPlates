@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.17.0]
+
+### Recent and Presets
+- Apply to my portrait opens the Portrait Editor for your current gearset when it's closed, then applies
+
+### Overlays
+- Buttons over the party and MVP portrait screens show again in duties and PvP; HUD elements no longer hide them
+
 ## [0.9.16.0]
 
 ### Gear
