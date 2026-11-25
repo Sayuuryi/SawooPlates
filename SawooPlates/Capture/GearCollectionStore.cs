@@ -153,7 +153,7 @@ public sealed unsafe class GearCollectionStore : IDisposable
         _notifications.AddNotification(new Notification
         {
             Title = "Sawoo Plates",
-            Content = $"Open {missing} once so Sawoo Plates can tell which gear you own. It remembers them after that.",
+            Content = $"Open {missing} once, and plates will show which gear you already own.",
             Type = NotificationType.Info,
             InitialDuration = TimeSpan.FromSeconds(12),
         });

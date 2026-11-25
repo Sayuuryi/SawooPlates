@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.9.21.0]
+
+### Gear
+- Clearer wording for the glamour dresser and armoire reminder
+
 ## [0.9.20.0]
 
 ### Plate design

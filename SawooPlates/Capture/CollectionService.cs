@@ -164,7 +164,7 @@ public sealed unsafe class CollectionService(ExcelService excelService, BannerSe
         if (inDresser == null || inArmoire == null)
         {
             var notSeen = inDresser == null && inArmoire == null ? "glamour dresser and armoire" : inDresser == null ? "glamour dresser" : "armoire";
-            return Ownership.Unknown($"Not in your inventory or armoury. Open your {notSeen} once so it can be checked too.");
+            return Ownership.Unknown($"Not in your inventory or armoury. Open your {notSeen} once to check there too.");
         }
 
         return new Ownership(OwnState.Missing, Hint: "Not in your inventory, armoury, glamour dresser or armoire. Retainers aren't checked.");
