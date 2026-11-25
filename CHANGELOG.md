@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.16.0]
+
+### Gear
+- Your glamour dresser and armoire are remembered per character, so owned gear is known even when they aren't open
+- The lists update by themselves whenever you open the dresser or armoire
+- A short reminder after logging in until both have been opened once
+
 ## [0.9.15.0]
 
 ### Recent and Presets

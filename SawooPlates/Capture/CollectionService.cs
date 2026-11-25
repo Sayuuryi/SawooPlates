@@ -18,7 +18,7 @@ public readonly record struct Ownership(OwnState State, string? Where = null, st
 }
 
 /// <summary>Checks portrait and plate unlocks and whether the player owns gear shown in a portrait.</summary>
-public sealed unsafe class CollectionService(ExcelService excelService, BannerService bannerService)
+public sealed unsafe class CollectionService(ExcelService excelService, BannerService bannerService, GearCollectionStore savedGear)
 {
     private Dictionary<uint, uint>? _cabinetByItem;
 
@@ -117,8 +117,9 @@ public sealed unsafe class CollectionService(ExcelService excelService, BannerSe
     // --- gear
 
     /// <summary>
-    /// Looks for an item in the places the client knows about: equipped, inventory, armoury chest,
-    /// glamour dresser and armoire. Retainers and the saddlebag are not checked.
+    /// Looks for an item in your inventory and armoury (always known), and in your glamour dresser and armoire:
+    /// live when the game has them loaded, otherwise from the lists saved the last time you opened them.
+    /// Retainers and the saddlebag are not checked.
     /// </summary>
     public Ownership Item(uint itemId)
     {
@@ -132,34 +133,38 @@ public sealed unsafe class CollectionService(ExcelService excelService, BannerSe
             return new Ownership(OwnState.Have, "Inventory or armoury");
         }
 
-        var dresserLoaded = false;
+        bool? inDresser = null;
         var mirage = MirageManager.Instance();
-        if (mirage != null)
+        if (mirage != null && mirage->PrismBoxLoaded)
         {
+            inDresser = false;
             foreach (var id in mirage->PrismBoxItemIds)
             {
-                if (id == 0)
-                    continue;
-
-                dresserLoaded = true;
-                if (id % 1_000_000 == itemId)
-                    return new Ownership(OwnState.Have, "Glamour dresser");
+                if (id != 0 && id % 1_000_000 == itemId)
+                {
+                    inDresser = true;
+                    break;
+                }
             }
         }
 
-        var armoireLoaded = false;
+        inDresser ??= savedGear.InDresser(itemId);
+        if (inDresser == true)
+            return new Ownership(OwnState.Have, "Glamour dresser");
+
+        bool? inArmoire = null;
         var uiState = UIState.Instance();
         if (uiState != null && uiState->Cabinet.IsCabinetLoaded())
-        {
-            armoireLoaded = true;
-            if (GetCabinetId(itemId) is { } cabinetId && uiState->Cabinet.IsItemInCabinet(cabinetId))
-                return new Ownership(OwnState.Have, "Armoire");
-        }
+            inArmoire = GetCabinetId(itemId) is { } cabinetId && uiState->Cabinet.IsItemInCabinet(cabinetId);
 
-        if (!dresserLoaded || !armoireLoaded)
+        inArmoire ??= savedGear.InArmoire(itemId);
+        if (inArmoire == true)
+            return new Ownership(OwnState.Have, "Armoire");
+
+        if (inDresser == null || inArmoire == null)
         {
-            var notLoaded = !dresserLoaded && !armoireLoaded ? "glamour dresser and armoire" : !dresserLoaded ? "glamour dresser" : "armoire";
-            return Ownership.Unknown($"Not in your inventory or armoury. Open your {notLoaded} once this session so it can be checked too.");
+            var notSeen = inDresser == null && inArmoire == null ? "glamour dresser and armoire" : inDresser == null ? "glamour dresser" : "armoire";
+            return Ownership.Unknown($"Not in your inventory or armoury. Open your {notSeen} once so it can be checked too.");
         }
 
         return new Ownership(OwnState.Missing, Hint: "Not in your inventory, armoury, glamour dresser or armoire. Retainers aren't checked.");

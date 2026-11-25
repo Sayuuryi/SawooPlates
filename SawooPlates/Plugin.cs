@@ -64,6 +64,7 @@ public static class PluginServices
             // UI
             .AddSingleton<PresetDetailPanel>()
             .AddSingleton<PlateItems>()
+            .AddSingleton<GearCollectionStore>()
             .AddSingleton<PlateRenderer>()
             .AddSingleton<BackupService>()
             .AddSingleton<ApplyControls>()
@@ -139,6 +140,7 @@ public sealed class Plugin : IDalamudPlugin
             _services.GetRequiredService<CharaCardSource>();
             _services.GetRequiredService<BannerPartySource>();
             _services.GetRequiredService<PlateContextMenu>();
+            _services.GetRequiredService<GearCollectionStore>();
             _windowSystem.AddWindow(_services.GetRequiredService<PlateCaptureButton>());
             _windowSystem.AddWindow(_services.GetRequiredService<PartyCaptureBar>());
             _windowSystem.AddWindow(_services.GetRequiredService<ImportPromptWindow>());
