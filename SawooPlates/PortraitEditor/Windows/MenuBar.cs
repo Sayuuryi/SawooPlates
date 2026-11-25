@@ -141,5 +141,8 @@ public unsafe class MenuBar : SimpleWindow
     {
         if (IsOpen)
             _alignmentToolRenderer.Draw();
+
+        // keeps the menu bar behind other plugin windows, like the Portrait Editor it sits on
+        base.PostDraw();
     }
 }

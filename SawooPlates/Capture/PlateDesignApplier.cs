@@ -98,11 +98,29 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
                 agent->OpenCharaCard((GameObject*)control->LocalPlayer);
 
             handoff.StepAside(() => CanApply || OwnPlateOpen);
-            WaitForDesignEditor(design, parts, done, DateTime.UtcNow.AddSeconds(90), plateSeen: false, told: false);
+            WaitForDesignEditor(design, parts, done, new Route(DateTime.UtcNow));
         });
     }
 
-    private void WaitForDesignEditor(PlateDesignData design, Parts parts, Action<int> done, DateTime giveUpAt, bool plateSeen, bool told)
+    /// <summary>Progress of the way from your plate to Edit Plate Design.</summary>
+    private sealed class Route(DateTime started)
+    {
+        public DateTime Started { get; } = started;
+        public bool PlateSeen;
+        public bool ClickedEdit;
+        public bool ClickedDesign;
+        public DateTime NextTry;
+        public bool Logged;
+        public bool Told;
+    }
+
+    // "Edit" on your plate opens a small menu; "Edit Plate Design" in it opens the design editor
+    private const uint EditPlateDesignText = 15002;
+    private static readonly uint[] EditTexts = [14733, 442, 2220, 4133, 4537, 4541, 4554, 4565, 11478, 12842, 14053, 16534];
+
+    private string AddonText(uint id) => excel.TryGetRow<Addon>(id, out var row) ? row.Text.ExtractText().Trim() : string.Empty;
+
+    private void WaitForDesignEditor(PlateDesignData design, Parts parts, Action<int> done, Route route)
     {
         if (CanApply)
         {
@@ -112,26 +130,74 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
         }
 
         var plateOpen = OwnPlateOpen;
-        if (plateSeen && !plateOpen)
+        var menu = AddonUtil.GetAddon<AtkUnitBase>("CharaCardEditMenu");
+        var menuOpen = menu != null && menu->IsVisible;
+
+        if (route.PlateSeen && !plateOpen && !menuOpen)
         {
             done(Cancelled); // the plate was closed without opening the design editor
             return;
         }
 
-        if (DateTime.UtcNow > giveUpAt)
+        if (DateTime.UtcNow - route.Started > TimeSpan.FromSeconds(90))
         {
             done(-1);
             return;
         }
 
-        if (plateOpen && !told)
+        route.PlateSeen |= plateOpen;
+
+        if ((plateOpen || menuOpen) && DateTime.UtcNow >= route.NextTry)
         {
-            told = true;
+            route.NextTry = DateTime.UtcNow + TimeSpan.FromMilliseconds(600);
+            TakeNextStep(route, menuOpen ? menu : null);
+        }
+
+        _ = framework.RunOnTick(() => WaitForDesignEditor(design, parts, done, route), TimeSpan.FromMilliseconds(200));
+    }
+
+    /// <summary>Clicks Edit on your plate, then Edit Plate Design in the menu that opens.</summary>
+    private void TakeNextStep(Route route, AtkUnitBase* menu)
+    {
+        var designText = AddonText(EditPlateDesignText);
+        bool IsDesign(string text) => designText.Length > 0 && string.Equals(text, designText, StringComparison.OrdinalIgnoreCase);
+
+        if (route.ClickedDesign)
+            return; // waiting for the editor to show
+
+        var card = AddonUtil.GetAddon<AtkUnitBase>("CharaCard");
+
+        // the design entry may be right on the plate or in the menu
+        if ((menu != null && GameClick.Click(menu, IsDesign)) || GameClick.Click(card, IsDesign))
+        {
+            route.ClickedDesign = true;
+            return;
+        }
+
+        if (menu == null && !route.ClickedEdit)
+        {
+            var editTexts = EditTexts.Select(AddonText).Where(t => t.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (GameClick.Click(card, editTexts.Contains))
+            {
+                route.ClickedEdit = true;
+                return;
+            }
+        }
+
+        // couldn't find the way: say what's there, and let the user do the last click
+        if (!route.Logged)
+        {
+            route.Logged = true;
+            log.Information("Edit Plate Design not found. Plate: {plate}. Menu: {menu}",
+                string.Join("; ", GameClick.Describe(card)), menu != null ? string.Join("; ", GameClick.Describe(menu)) : "closed");
+        }
+
+        if (!route.Told)
+        {
+            route.Told = true;
             captureService.Notify("Your plate is open. Open Edit Plate Design and the design goes in by itself.",
                 Dalamud.Interface.ImGuiNotification.NotificationType.Info);
         }
-
-        _ = framework.RunOnTick(() => WaitForDesignEditor(design, parts, done, giveUpAt, plateSeen || plateOpen, told), TimeSpan.FromMilliseconds(200));
     }
 
     /// <summary>Writes the design into the editor. Returns how many parts were left out because they aren't unlocked.</summary>

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.22.0]
+
+### Plate design
+- Apply plate design goes all the way to Edit Plate Design by itself: it opens your plate, clicks Edit and then Edit Plate Design
+- If a step can't be found, it asks you to open Edit Plate Design and still applies when you do
+
+### Overlays
+- The Portrait Editor menu bar and the alignment guides stay behind other plugin windows too
+
 ## [0.9.21.0]
 
 ### Gear

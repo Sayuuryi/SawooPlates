@@ -89,5 +89,6 @@ public unsafe class AlignmentToolRenderer
         }
 
         ImGui.End();
+        OverlayStyle.SendToBack("AlignmentTool");
     }
 }
