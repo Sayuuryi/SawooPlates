@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.23.0]
+
+### Plate design
+- Use plate design (was Apply plate design) opens Edit Plate on your plate and shows a list next to it with what to pick in each row, marking parts you don't have
+- Ctrl+click still lets you pick which parts to use; rows you leave out say "Keep yours"
+- Closing Edit Plate closes the plate it opened and brings the Sawoo Plates window back
+- It no longer says the design was applied; the game only takes picks made in its own menus
+
 ## [0.9.22.0]
 
 ### Plate design

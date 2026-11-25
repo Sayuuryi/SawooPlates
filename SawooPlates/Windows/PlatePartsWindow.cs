@@ -4,7 +4,7 @@ using SawooPlates.Capture;
 namespace SawooPlates.Windows;
 
 /// <summary>
-/// Ctrl+click on "Apply plate design": pick which parts of the design to take.
+/// Ctrl+click on "Use plate design": pick which parts of the design to take.
 /// The preview shows only the picked parts; parts you don't pick stay as they are on your plate.
 /// </summary>
 public sealed class PlatePartsWindow : Window
@@ -117,12 +117,9 @@ public sealed class PlatePartsWindow : Window
         var nothing = _chosen.Count == 0 && !_position;
         using (ImRaii.Disabled(nothing))
         {
-            if (ImGui.Button("Apply", button) && !nothing && _apply is { } apply)
+            if (ImGui.Button("Use", button) && !nothing && _apply is { } apply)
             {
-                var parts = new PlateDesignApplier.Parts(
-                    Decorations: _chosen.Any(i => _parts[i].Part == PlateItems.PlatePart.Decoration),
-                    Position: _position,
-                    MergeDecorations: true);
+                var parts = new PlateDesignApplier.Parts(Position: _position, Selective: true);
                 IsOpen = false;
                 apply(picked, parts);
             }

@@ -1,29 +1,25 @@
-using Dalamud.Interface.ImGuiNotification;
 using SawooPlates.Capture;
 using SawooPlates.PortraitEditor.Enums;
 
 namespace SawooPlates.Windows;
 
 /// <summary>
-/// "Apply to my portrait" and "Apply plate design" buttons.
+/// "Apply to my portrait" and "Use plate design" buttons.
 /// Their tooltips list what you're missing; a click asks first when something is missing,
-/// and Ctrl+click lets you pick which parts to apply.
+/// and Ctrl+click lets you pick which parts to use.
 /// </summary>
 public sealed class ApplyControls(
     PortraitActions actions,
     PlateDesignApplier designApplier,
     PlateItems plateItems,
-    CaptureService captureService,
     PlatePartsWindow partsWindow)
 {
     private const string ConfirmPortraitPopup = "Apply portrait?##SawooConfirmPortrait";
-    private const string ConfirmPlatePopup = "Apply plate design?##SawooConfirmPlate";
 
     private PortraitPresetData? _pendingPreset;
     private ImportFlags _pendingFlags;
     private List<PlateItems.PartInfo> _pendingMissing = [];
 
-    private PlateDesignData? _pendingPlate;
 
     private string? _openPopup;
 
@@ -68,23 +64,15 @@ public sealed class ApplyControls(
         {
             var plateParts = plateItems.GetParts(new CapturedPortrait { Preset = preset, Plate = plate }, preset, "Plate");
             var plateMissing = Missing(plateParts);
-            var canPlate = designApplier.CanApplyOrOpen;
+            var canPlate = designApplier.CanUse;
 
             ImGui.SameLine();
-            if (Ui.Button(FontAwesomeIcon.IdCard, "Apply plate design", !canPlate))
+            if (Ui.Button(FontAwesomeIcon.IdCard, "Use plate design", !canPlate))
             {
                 if (ImGui.GetIO().KeyCtrl)
-                {
-                    partsWindow.Show(title ?? string.Empty, plate, plateParts, preview, ApplyPlate);
-                }
-                else if (plateMissing.Count > 0)
-                {
-                    Ask(ConfirmPlatePopup, () => { _pendingPlate = plate; _pendingMissing = plateMissing; });
-                }
+                    partsWindow.Show(title ?? string.Empty, plate, plateParts, preview, designApplier.Use);
                 else
-                {
-                    ApplyPlate(plate, PlateDesignApplier.Parts.All);
-                }
+                    designApplier.Use(plate, PlateDesignApplier.Parts.All);
             }
 
             if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
@@ -92,10 +80,8 @@ public sealed class ApplyControls(
                 using var tip = ImRaii.Tooltip();
                 if (canPlate)
                 {
-                    ImGui.TextUnformatted(designApplier.CanApply
-                        ? "Puts this plate design in your design editor. Press Save there to keep it."
-                        : "Opens your Adventurer Plate. Open Edit Plate Design there and this design goes in by itself.");
-                    ImGui.TextColored(Ui.Dim, "Hold Ctrl while clicking to choose which parts to apply.");
+                    ImGui.TextUnformatted("Opens Edit Plate on your Adventurer Plate with a list of what to pick in each row.");
+                    ImGui.TextColored(Ui.Dim, "Hold Ctrl while clicking to choose which parts to use.");
                 }
                 else
                 {
@@ -118,20 +104,6 @@ public sealed class ApplyControls(
         _openPopup = popup;
     }
 
-    private void ApplyPlate(PlateDesignData plate, PlateDesignApplier.Parts parts)
-    {
-        designApplier.ApplyOrOpen(plate, parts, skipped =>
-        {
-            if (skipped == PlateDesignApplier.Cancelled)
-                return;
-
-            captureService.Notify(
-            skipped < 0 ? "Edit Plate Design wasn't opened, so nothing was changed. Try again when you're ready."
-            : skipped > 0 ? $"Plate design applied without {skipped} part(s) you don't have. Press Save to keep it."
-            : "Plate design applied. Press Save in the design window to keep it.",
-            skipped < 0 ? NotificationType.Warning : NotificationType.Success);
-        });
-    }
 
     private void DrawPopups()
     {
@@ -168,36 +140,6 @@ public sealed class ApplyControls(
                 if (ImGui.Button("Cancel", buttonSize))
                 {
                     _pendingPreset = null;
-                    ImGui.CloseCurrentPopup();
-                }
-            }
-        }
-
-        // --- confirm plate
-        ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f));
-        using (var popup = ImRaii.PopupModal(ConfirmPlatePopup, ImGuiWindowFlags.AlwaysAutoResize))
-        {
-            if (popup.Success && _pendingPlate is { } pendingPlate)
-            {
-                ImGui.TextUnformatted(_pendingMissing.Count == 1
-                    ? "The plate design will be applied without 1 part you don't have."
-                    : $"The plate design will be applied without {_pendingMissing.Count} parts you don't have.");
-                plateItems.DrawMissingList(_pendingMissing);
-                ImGui.Spacing();
-                ImGui.TextColored(Ui.Dim, "Tip: hold Ctrl when clicking Apply to choose the parts yourself.");
-                ImGui.Spacing();
-
-                if (ImGui.Button("Apply", buttonSize))
-                {
-                    ApplyPlate(pendingPlate, PlateDesignApplier.Parts.All);
-                    _pendingPlate = null;
-                    ImGui.CloseCurrentPopup();
-                }
-
-                ImGui.SameLine();
-                if (ImGui.Button("Cancel", buttonSize))
-                {
-                    _pendingPlate = null;
                     ImGui.CloseCurrentPopup();
                 }
             }

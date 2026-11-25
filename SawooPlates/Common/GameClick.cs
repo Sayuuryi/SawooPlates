@@ -18,11 +18,11 @@ public static unsafe class GameClick
     }
 
     /// <summary>Texts of the visible buttons and list entries, for the log when nothing matched.</summary>
-    public static List<string> Describe(AtkUnitBase* addon)
+    public static List<string> Describe(AtkUnitBase* addon, bool withText = false)
     {
         var texts = new List<string>();
         if (addon != null)
-            DescribeIn(&addon->UldManager, texts, depth: 0);
+            DescribeIn(&addon->UldManager, texts, depth: 0, withText);
         return texts;
     }
 
@@ -70,7 +70,7 @@ public static unsafe class GameClick
         return false;
     }
 
-    private static void DescribeIn(AtkUldManager* uld, List<string> texts, int depth)
+    private static void DescribeIn(AtkUldManager* uld, List<string> texts, int depth, bool withText)
     {
         if (depth > 6)
             return;
@@ -78,7 +78,18 @@ public static unsafe class GameClick
         for (var i = 0; i < uld->NodeListCount; i++)
         {
             var node = uld->NodeList[i];
-            if (node == null || (int)node->Type < 1000)
+            if (node == null)
+                continue;
+
+            if (withText && node->Type == NodeType.Text)
+            {
+                var text = ((AtkTextNode*)node)->NodeText.ToString().Trim();
+                if (text.Length > 0)
+                    texts.Add($"{new string('>', depth)}text {node->NodeId} '{text}'");
+                continue;
+            }
+
+            if ((int)node->Type < 1000)
                 continue;
 
             var component = ((AtkComponentNode*)node)->Component;
@@ -87,16 +98,19 @@ public static unsafe class GameClick
 
             var type = component->GetComponentType();
             if (type == ComponentType.Button)
-                texts.Add($"button {node->NodeId} '{ButtonText((AtkComponentButton*)component)}'{(node->IsVisible() ? "" : " (hidden)")}");
+                texts.Add($"{new string('>', depth)}button {node->NodeId} '{ButtonText((AtkComponentButton*)component)}'{(node->IsVisible() ? "" : " (hidden)")}");
             else if (type is ComponentType.List or ComponentType.TreeList)
             {
                 var list = (AtkComponentList*)component;
                 for (var item = 0; item < list->GetItemCount(); item++)
-                    texts.Add($"list {node->NodeId} item {item} '{ListItemText(list, item)}'");
+                    texts.Add($"{new string('>', depth)}list {node->NodeId} item {item} '{ListItemText(list, item)}'");
                 continue;
             }
 
-            DescribeIn(&component->UldManager, texts, depth + 1);
+            if (withText && type != ComponentType.Button)
+                texts.Add($"{new string('>', depth)}component {node->NodeId} {type}");
+
+            DescribeIn(&component->UldManager, texts, depth + 1, withText);
         }
     }
 

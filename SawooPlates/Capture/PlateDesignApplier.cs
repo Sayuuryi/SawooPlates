@@ -6,54 +6,64 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 namespace SawooPlates.Capture;
 
 /// <summary>
-/// Puts a saved plate design into the game's "Edit Design" window for your own Adventurer Plate.
-/// Only parts you have unlocked are used; the game's own Save button keeps the result, Cancel restores your old design.
+/// Takes you to the game's Edit Plate window for your own Adventurer Plate and keeps the design you want to use
+/// as <see cref="Current"/>, so the guide next to that window can show what to pick in each row.
+/// The game keeps the window's choices in its own data, so the picks are made in the game's menus.
+/// When this opened your plate, closing Edit Plate also closes the plate and brings the Sawoo Plates window back.
 /// </summary>
-public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framework, ExcelService excel, CollectionService collection, CaptureService captureService, WindowHandoff handoff)
+public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framework, ExcelService excel, CaptureService captureService, WindowHandoff handoff)
 {
-    /// <summary>
-    /// Which parts to write. Base plate and borders are written when their id isn't 0.
-    /// <paramref name="MergeDecorations"/>: each picked decoration replaces yours of the same kind (backing, frame...)
-    /// and your others stay; otherwise your decorations are replaced by the design's.
-    /// </summary>
-    public readonly record struct Parts(bool Decorations = true, bool Position = true, bool MergeDecorations = false)
+    /// <summary>Which parts to show. <paramref name="Selective"/>: parts left out stay as they are on your plate.</summary>
+    public readonly record struct Parts(bool Position = true, bool Selective = false)
     {
         public static Parts All => new();
     }
 
+    /// <summary>The design being put on your plate, with the parts to use.</summary>
+    public sealed record Guide(PlateDesignData Design, Parts Parts);
+
     // the game calls the window CharaCardDesignSetting; its layout file is CharacterCardDesignSetting
     private static readonly string[] DesignAddons = ["CharaCardDesignSetting", "CharacterCardDesignSetting"];
 
-    /// <summary>True while the design editor of your own plate is open.</summary>
-    public bool CanApply
+    // "Edit" on your plate opens a small menu; "Edit Plate Design" in it opens Edit Plate
+    private const uint EditPlateDesignText = 15002;
+    private static readonly uint[] EditTexts = [14733, 442, 2220, 4133, 4537, 4541, 4554, 4565, 11478, 12842, 14053, 16534];
+
+    private Route? _route;
+    private bool _describedEditor;
+
+    /// <summary>The design shown in the guide while Edit Plate is open; null when nothing is going on.</summary>
+    public Guide? Current { get; private set; }
+
+    /// <summary>The Edit Plate window, or null when it isn't open.</summary>
+    public static AtkUnitBase* DesignAddon
     {
         get
         {
             var agent = AgentCharaCard.Instance();
             if (agent == null || agent->Data == null)
-                return false;
+                return null;
 
-            // the design editor only opens for your own plate
             foreach (var name in DesignAddons)
             {
                 var addon = AddonUtil.GetAddon<AtkUnitBase>(name);
                 if (addon != null && addon->IsVisible)
-                    return true;
+                    return addon;
             }
 
-            return false;
+            return null;
         }
     }
 
-    /// <summary>Passed to the callback of <see cref="ApplyOrOpen"/> when the plate was closed before the design editor opened.</summary>
-    public const int Cancelled = -2;
+    /// <summary>True while Edit Plate of your own plate is open.</summary>
+    public bool EditorOpen => DesignAddon != null;
 
-    /// <summary>True when the design editor is open, or your own plate can be opened to get to it.</summary>
-    public bool CanApplyOrOpen
+    /// <summary>True when Edit Plate is open, or your own plate can be opened to get to it.</summary>
+    public bool CanUse
     {
         get
         {
-            if (CanApply)
+            if (EditorOpen)
                 return true;
 
             var control = Control.Instance();
@@ -71,42 +81,13 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
         }
     }
 
-    /// <summary>
-    /// Applies the design. When the design editor is closed, opens your own Adventurer Plate and applies
-    /// as soon as you open Edit Plate Design there. <paramref name="done"/> gets the number of skipped parts,
-    /// -1 when the editor didn't open in time, or <see cref="Cancelled"/> when the plate was closed first.
-    /// </summary>
-    public void ApplyOrOpen(PlateDesignData design, Parts parts, Action<int> done)
-    {
-        if (CanApply)
-        {
-            done(Apply(design, parts));
-            return;
-        }
-
-        framework.RunOnFrameworkThread(() =>
-        {
-            var control = Control.Instance();
-            var agent = AgentCharaCard.Instance();
-            if (control == null || control->LocalPlayer == null || agent == null)
-            {
-                done(-1);
-                return;
-            }
-
-            if (!OwnPlateOpen)
-                agent->OpenCharaCard((GameObject*)control->LocalPlayer);
-
-            handoff.StepAside(() => CanApply || OwnPlateOpen);
-            WaitForDesignEditor(design, parts, done, new Route(DateTime.UtcNow));
-        });
-    }
-
-    /// <summary>Progress of the way from your plate to Edit Plate Design.</summary>
-    private sealed class Route(DateTime started)
+    /// <summary>Progress of one use: from your plate to Edit Plate, and back when it closes.</summary>
+    private sealed class Route(DateTime started, bool openedByUs)
     {
         public DateTime Started { get; } = started;
+        public bool OpenedByUs { get; } = openedByUs;
         public bool PlateSeen;
+        public bool EditorSeen;
         public bool ClickedEdit;
         public bool ClickedDesign;
         public DateTime NextTry;
@@ -114,60 +95,122 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
         public bool Told;
     }
 
-    // "Edit" on your plate opens a small menu; "Edit Plate Design" in it opens the design editor
-    private const uint EditPlateDesignText = 15002;
-    private static readonly uint[] EditTexts = [14733, 442, 2220, 4133, 4537, 4541, 4554, 4565, 11478, 12842, 14053, 16534];
+    /// <summary>
+    /// Shows <paramref name="design"/> in the guide. When Edit Plate is closed, opens your plate and goes to it.
+    /// </summary>
+    public void Use(PlateDesignData design, Parts parts)
+    {
+        framework.RunOnFrameworkThread(() =>
+        {
+            Current = new Guide(design, parts);
+
+            if (_route != null)
+                return; // already on the way; the new design replaces the old one
+
+            if (EditorOpen)
+            {
+                _route = new Route(DateTime.UtcNow, openedByUs: false) { EditorSeen = true };
+                Watch(_route);
+                return;
+            }
+
+            var control = Control.Instance();
+            var agent = AgentCharaCard.Instance();
+            if (control == null || control->LocalPlayer == null || agent == null)
+            {
+                Current = null;
+                captureService.Notify("Your Adventurer Plate can't be opened right now.", Dalamud.Interface.ImGuiNotification.NotificationType.Warning);
+                return;
+            }
+
+            var openedByUs = !OwnPlateOpen;
+            if (openedByUs)
+                agent->OpenCharaCard((GameObject*)control->LocalPlayer);
+
+            _route = new Route(DateTime.UtcNow, openedByUs);
+            var route = _route;
+            handoff.StepAside(() => _route == route);
+            Watch(route);
+        });
+    }
+
+    private void End(Route route)
+    {
+        if (_route != route)
+            return;
+
+        _route = null;
+        Current = null;
+    }
+
+    private void Watch(Route route)
+    {
+        if (_route != route)
+            return;
+
+        var editorOpen = EditorOpen;
+
+        if (editorOpen)
+        {
+            route.EditorSeen = true;
+            DescribeEditorOnce();
+        }
+        else if (route.EditorSeen)
+        {
+            // Edit Plate was closed: close the plate this opened, and the Sawoo Plates window comes back
+            if (route.OpenedByUs && OwnPlateOpen)
+            {
+                var card = AddonUtil.GetAddon<AtkUnitBase>("CharaCard");
+                if (card != null)
+                    card->Close(true);
+            }
+
+            End(route);
+            return;
+        }
+        else
+        {
+            var plateOpen = OwnPlateOpen;
+            var menu = AddonUtil.GetAddon<AtkUnitBase>("CharaCardEditMenu");
+            var menuOpen = menu != null && menu->IsVisible;
+
+            if (route.PlateSeen && !plateOpen && !menuOpen)
+            {
+                End(route); // the plate was closed before Edit Plate opened
+                return;
+            }
+
+            if (DateTime.UtcNow - route.Started > TimeSpan.FromSeconds(90))
+            {
+                End(route);
+                return;
+            }
+
+            route.PlateSeen |= plateOpen;
+
+            if ((plateOpen || menuOpen) && DateTime.UtcNow >= route.NextTry)
+            {
+                route.NextTry = DateTime.UtcNow + TimeSpan.FromMilliseconds(600);
+                TakeNextStep(route, menuOpen ? menu : null);
+            }
+        }
+
+        _ = framework.RunOnTick(() => Watch(route), TimeSpan.FromMilliseconds(200));
+    }
 
     private string AddonText(uint id) => excel.TryGetRow<Addon>(id, out var row) ? row.Text.ExtractText().Trim() : string.Empty;
-
-    private void WaitForDesignEditor(PlateDesignData design, Parts parts, Action<int> done, Route route)
-    {
-        if (CanApply)
-        {
-            // give the window a moment to fill in your current design before changing it
-            _ = framework.RunOnTick(() => done(CanApply ? Apply(design, parts) : -1), TimeSpan.FromMilliseconds(500));
-            return;
-        }
-
-        var plateOpen = OwnPlateOpen;
-        var menu = AddonUtil.GetAddon<AtkUnitBase>("CharaCardEditMenu");
-        var menuOpen = menu != null && menu->IsVisible;
-
-        if (route.PlateSeen && !plateOpen && !menuOpen)
-        {
-            done(Cancelled); // the plate was closed without opening the design editor
-            return;
-        }
-
-        if (DateTime.UtcNow - route.Started > TimeSpan.FromSeconds(90))
-        {
-            done(-1);
-            return;
-        }
-
-        route.PlateSeen |= plateOpen;
-
-        if ((plateOpen || menuOpen) && DateTime.UtcNow >= route.NextTry)
-        {
-            route.NextTry = DateTime.UtcNow + TimeSpan.FromMilliseconds(600);
-            TakeNextStep(route, menuOpen ? menu : null);
-        }
-
-        _ = framework.RunOnTick(() => WaitForDesignEditor(design, parts, done, route), TimeSpan.FromMilliseconds(200));
-    }
 
     /// <summary>Clicks Edit on your plate, then Edit Plate Design in the menu that opens.</summary>
     private void TakeNextStep(Route route, AtkUnitBase* menu)
     {
+        if (route.ClickedDesign)
+            return; // waiting for Edit Plate to show
+
         var designText = AddonText(EditPlateDesignText);
         bool IsDesign(string text) => designText.Length > 0 && string.Equals(text, designText, StringComparison.OrdinalIgnoreCase);
 
-        if (route.ClickedDesign)
-            return; // waiting for the editor to show
-
         var card = AddonUtil.GetAddon<AtkUnitBase>("CharaCard");
 
-        // the design entry may be right on the plate or in the menu
         if ((menu != null && GameClick.Click(menu, IsDesign)) || GameClick.Click(card, IsDesign))
         {
             route.ClickedDesign = true;
@@ -184,7 +227,6 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
             }
         }
 
-        // couldn't find the way: say what's there, and let the user do the last click
         if (!route.Logged)
         {
             route.Logged = true;
@@ -195,83 +237,18 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
         if (!route.Told)
         {
             route.Told = true;
-            captureService.Notify("Your plate is open. Open Edit Plate Design and the design goes in by itself.",
+            captureService.Notify("Your plate is open. Open Edit Plate Design to see what to pick.",
                 Dalamud.Interface.ImGuiNotification.NotificationType.Info);
         }
     }
 
-    /// <summary>Writes the design into the editor. Returns how many parts were left out because they aren't unlocked.</summary>
-    public int Apply(PlateDesignData design, Parts parts)
+    /// <summary>Once per session: what Edit Plate is made of, so picking rows by itself can be added later.</summary>
+    private void DescribeEditorOnce()
     {
-        if (!CanApply)
-            return -1;
+        if (_describedEditor)
+            return;
 
-        var data = AgentCharaCard.Instance()->Data;
-        ref var plate = ref data->PlateDesign;
-        var skipped = 0;
-
-        if (design.BasePlate != 0)
-        {
-            if (collection.PlateBase(design.BasePlate).State == OwnState.Have)
-                plate.BasePlate = design.BasePlate;
-            else
-                skipped++;
-        }
-
-        if (design.TopBorder != 0)
-        {
-            if (collection.PlateHeader(design.TopBorder).State == OwnState.Have)
-                plate.TopBorder = design.TopBorder;
-            else
-                skipped++;
-        }
-
-        if (design.BottomBorder != 0)
-        {
-            if (collection.PlateHeader(design.BottomBorder).State == OwnState.Have)
-                plate.BottomBorder = design.BottomBorder;
-            else
-                skipped++;
-        }
-
-        if (parts.Decorations)
-        {
-            var incoming = new List<ushort>();
-            foreach (var id in design.Decorations.Where(d => d != 0))
-            {
-                if (collection.PlateDecoration(id).State == OwnState.Have)
-                    incoming.Add(id);
-                else
-                    skipped++;
-            }
-
-            var slots = plate.Decorations;
-            var result = new List<ushort>();
-            if (parts.MergeDecorations)
-            {
-                // keep yours, except the kinds being replaced
-                var replaced = incoming.Select(Component).ToHashSet();
-                for (var i = 0; i < slots.Length; i++)
-                {
-                    if (slots[i] != 0 && !replaced.Contains(Component(slots[i])))
-                        result.Add(slots[i]);
-                }
-            }
-
-            result.AddRange(incoming);
-            for (var i = 0; i < slots.Length; i++)
-                slots[i] = i < result.Count ? result[i] : (ushort)0;
-            plate.NumDecorations = (byte)Math.Min(result.Count, slots.Length);
-        }
-
-        if (parts.Position)
-            data->InvertPortraitPlacement = design.InvertPortraitPlacement;
-
-        log.Debug("Applied plate design ({skipped} parts skipped)", skipped);
-        return skipped;
+        _describedEditor = true;
+        log.Information("Edit Plate layout: {layout}", string.Join("; ", GameClick.Describe(DesignAddon, withText: true)));
     }
-
-    /// <summary>Which slot kind a decoration fills (backing, pattern, portrait frame, plate frame, accent).</summary>
-    private byte Component(ushort decoration)
-        => excel.TryGetRow<CharaCardDecoration>(decoration, out var row) ? row.Component : (byte)0;
 }
