@@ -71,6 +71,9 @@ public abstract class SimpleWindow : Window, IDisposable
 
         base.PostDraw();
 
+        // these windows sit on game windows, so they stay behind other plugin windows like the game window does
+        OverlayStyle.SendToBack(WindowName);
+
         if (Collapsed != null)
             Collapsed = null;
     }

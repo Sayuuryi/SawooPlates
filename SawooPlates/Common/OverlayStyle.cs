@@ -52,6 +52,18 @@ public static unsafe class OverlayStyle
         return false;
     }
 
+    /// <summary>
+    /// Puts an overlay behind every other plugin window. Overlays sit on game windows, and game windows are
+    /// always drawn under plugin windows, so an overlay in front of a plugin window would float over it.
+    /// Call it after the window has ended (PostDraw).
+    /// </summary>
+    public static void SendToBack(string windowName)
+    {
+        var window = ImGuiP.FindWindowByName(windowName);
+        if (!window.IsNull)
+            ImGuiP.BringWindowToDisplayBack(window);
+    }
+
     /// <summary>Dark rounded panel with a thin gold border, so buttons stay readable over any plate art.</summary>
     public static IDisposable PushPanel()
     {

@@ -79,6 +79,7 @@ public sealed unsafe class PartyCaptureBar : Window
     {
         _style?.Dispose();
         _style = null;
+        OverlayStyle.SendToBack(WindowName);
     }
 
     public override void Draw()

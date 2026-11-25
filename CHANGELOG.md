@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.20.0]
+
+### Plate design
+- Apply plate design opens your Adventurer Plate and puts the design in as soon as you open Edit Plate Design there
+- Closing the plate before that cancels it without changing anything
+
+### Overlays
+- The Portrait Editor menu bar and the buttons over game windows stay behind other plugin windows
+
 ## [0.9.19.0]
 
 ### Plate design

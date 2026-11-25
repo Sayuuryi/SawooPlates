@@ -68,6 +68,7 @@ public sealed unsafe class PlateCaptureButton : Window
     {
         _style?.Dispose();
         _style = null;
+        OverlayStyle.SendToBack(WindowName);
     }
 
     public override void Draw()

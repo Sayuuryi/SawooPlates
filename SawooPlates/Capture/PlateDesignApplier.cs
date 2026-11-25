@@ -2,7 +2,6 @@ using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using GameAgentId = FFXIVClientStructs.FFXIV.Client.UI.Agent.AgentId;
 
 namespace SawooPlates.Capture;
 
@@ -10,7 +9,7 @@ namespace SawooPlates.Capture;
 /// Puts a saved plate design into the game's "Edit Design" window for your own Adventurer Plate.
 /// Only parts you have unlocked are used; the game's own Save button keeps the result, Cancel restores your old design.
 /// </summary>
-public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framework, ExcelService excel, CollectionService collection, WindowHandoff handoff)
+public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framework, ExcelService excel, CollectionService collection, CaptureService captureService, WindowHandoff handoff)
 {
     /// <summary>
     /// Which parts to write. Base plate and borders are written when their id isn't 0.
@@ -46,6 +45,9 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
         }
     }
 
+    /// <summary>Passed to the callback of <see cref="ApplyOrOpen"/> when the plate was closed before the design editor opened.</summary>
+    public const int Cancelled = -2;
+
     /// <summary>True when the design editor is open, or your own plate can be opened to get to it.</summary>
     public bool CanApplyOrOpen
     {
@@ -70,8 +72,9 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
     }
 
     /// <summary>
-    /// Applies the design, first opening your own Adventurer Plate and its design editor when they're closed.
-    /// <paramref name="done"/> gets the number of skipped parts, or -1 when the editor couldn't be opened.
+    /// Applies the design. When the design editor is closed, opens your own Adventurer Plate and applies
+    /// as soon as you open Edit Plate Design there. <paramref name="done"/> gets the number of skipped parts,
+    /// -1 when the editor didn't open in time, or <see cref="Cancelled"/> when the plate was closed first.
     /// </summary>
     public void ApplyOrOpen(PlateDesignData design, Parts parts, Action<int> done)
     {
@@ -95,16 +98,23 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
                 agent->OpenCharaCard((GameObject*)control->LocalPlayer);
 
             handoff.StepAside(() => CanApply || OwnPlateOpen);
-            OpenDesignWhenReady(design, parts, done, DateTime.UtcNow.AddSeconds(10), designShown: false);
+            WaitForDesignEditor(design, parts, done, DateTime.UtcNow.AddSeconds(90), plateSeen: false, told: false);
         });
     }
 
-    private void OpenDesignWhenReady(PlateDesignData design, Parts parts, Action<int> done, DateTime giveUpAt, bool designShown)
+    private void WaitForDesignEditor(PlateDesignData design, Parts parts, Action<int> done, DateTime giveUpAt, bool plateSeen, bool told)
     {
         if (CanApply)
         {
             // give the window a moment to fill in your current design before changing it
             _ = framework.RunOnTick(() => done(CanApply ? Apply(design, parts) : -1), TimeSpan.FromMilliseconds(500));
+            return;
+        }
+
+        var plateOpen = OwnPlateOpen;
+        if (plateSeen && !plateOpen)
+        {
+            done(Cancelled); // the plate was closed without opening the design editor
             return;
         }
 
@@ -114,15 +124,14 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
             return;
         }
 
-        if (!designShown && OwnPlateOpen)
+        if (plateOpen && !told)
         {
-            var designAgent = AgentModule.Instance()->GetAgentByInternalId(GameAgentId.CharaCardDesignSetting);
-            if (designAgent != null && !designAgent->IsAgentActive())
-                designAgent->Show();
-            designShown = true;
+            told = true;
+            captureService.Notify("Your plate is open. Open Edit Plate Design and the design goes in by itself.",
+                Dalamud.Interface.ImGuiNotification.NotificationType.Info);
         }
 
-        _ = framework.RunOnTick(() => OpenDesignWhenReady(design, parts, done, giveUpAt, designShown), TimeSpan.FromMilliseconds(200));
+        _ = framework.RunOnTick(() => WaitForDesignEditor(design, parts, done, giveUpAt, plateSeen || plateOpen, told), TimeSpan.FromMilliseconds(200));
     }
 
     /// <summary>Writes the design into the editor. Returns how many parts were left out because they aren't unlocked.</summary>

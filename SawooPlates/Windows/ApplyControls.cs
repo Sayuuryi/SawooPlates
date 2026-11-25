@@ -94,7 +94,7 @@ public sealed class ApplyControls(
                 {
                     ImGui.TextUnformatted(designApplier.CanApply
                         ? "Puts this plate design in your design editor. Press Save there to keep it."
-                        : "Opens your plate's design editor and puts this design in it. Press Save there to keep it.");
+                        : "Opens your Adventurer Plate. Open Edit Plate Design there and this design goes in by itself.");
                     ImGui.TextColored(Ui.Dim, "Hold Ctrl while clicking to choose which parts to apply.");
                 }
                 else
@@ -120,11 +120,17 @@ public sealed class ApplyControls(
 
     private void ApplyPlate(PlateDesignData plate, PlateDesignApplier.Parts parts)
     {
-        designApplier.ApplyOrOpen(plate, parts, skipped => captureService.Notify(
-            skipped < 0 ? "The design editor didn't open. Open your Adventurer Plate, go to Edit Plate Design and try again."
+        designApplier.ApplyOrOpen(plate, parts, skipped =>
+        {
+            if (skipped == PlateDesignApplier.Cancelled)
+                return;
+
+            captureService.Notify(
+            skipped < 0 ? "Edit Plate Design wasn't opened, so nothing was changed. Try again when you're ready."
             : skipped > 0 ? $"Plate design applied without {skipped} part(s) you don't have. Press Save to keep it."
             : "Plate design applied. Press Save in the design window to keep it.",
-            skipped < 0 ? NotificationType.Warning : NotificationType.Success));
+            skipped < 0 ? NotificationType.Warning : NotificationType.Success);
+        });
     }
 
     private void DrawPopups()
