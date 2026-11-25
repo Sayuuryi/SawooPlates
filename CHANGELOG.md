@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.18.0]
+
+### Recent and Presets
+- Apply plate design opens your Adventurer Plate and its design editor when they're closed, then applies
+- The Sawoo Plates window steps aside while an editor it opened is in use, and comes back when that editor closes
+
 ## [0.9.17.0]
 
 ### Recent and Presets

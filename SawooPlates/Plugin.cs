@@ -53,6 +53,7 @@ public static class PluginServices
             .AddSingleton<GearReader>()
             .AddSingleton<CollectionService>()
             .AddSingleton<PlateDesignApplier>()
+            .AddSingleton<WindowHandoff>()
             .AddSingleton<PresetImporter>()
             .AddSingleton<ImportPromptWindow>()
             .AddSingleton<CharaCardSource>()

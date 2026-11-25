@@ -14,13 +14,30 @@ public sealed class MainWindow : Window
     private readonly SettingsTab _settingsTab;
     private Tab? _requestedTab;
 
-    public MainWindow(IDalamudPluginInterface pluginInterface, RecentTab recentTab, PresetsTab presetsTab, SettingsTab settingsTab)
+    private bool _steppedAside;
+
+    public MainWindow(IDalamudPluginInterface pluginInterface, RecentTab recentTab, PresetsTab presetsTab, SettingsTab settingsTab, WindowHandoff handoff)
         : base("Sawoo Plates##SawooPlatesMain")
     {
         _pluginInterface = pluginInterface;
         _recentTab = recentTab;
         _presetsTab = presetsTab;
         _settingsTab = settingsTab;
+
+        // out of the way while an editor it opened is in use, back when that editor closes
+        handoff.Visibility += visible =>
+        {
+            if (!visible && IsOpen)
+            {
+                _steppedAside = true;
+                IsOpen = false;
+            }
+            else if (visible && _steppedAside)
+            {
+                _steppedAside = false;
+                IsOpen = true;
+            }
+        };
 
         Size = new Vector2(1160, 760);
         SizeCondition = ImGuiCond.FirstUseEver;
@@ -34,6 +51,7 @@ public sealed class MainWindow : Window
     public void Open(Tab tab)
     {
         _requestedTab = tab;
+        _steppedAside = false;
         IsOpen = true;
         BringToFront();
     }

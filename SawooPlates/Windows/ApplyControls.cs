@@ -1,3 +1,4 @@
+using Dalamud.Interface.ImGuiNotification;
 using SawooPlates.Capture;
 using SawooPlates.PortraitEditor.Enums;
 
@@ -68,7 +69,7 @@ public sealed class ApplyControls(
         {
             var plateParts = plateItems.GetParts(new CapturedPortrait { Preset = preset, Plate = plate }, preset, "Plate");
             var plateMissing = Missing(plateParts);
-            var canPlate = designApplier.CanApply;
+            var canPlate = designApplier.CanApplyOrOpen;
 
             ImGui.SameLine();
             if (Ui.Button(FontAwesomeIcon.IdCard, "Apply plate design", !canPlate))
@@ -102,12 +103,14 @@ public sealed class ApplyControls(
                 using var tip = ImRaii.Tooltip();
                 if (canPlate)
                 {
-                    ImGui.TextUnformatted("Puts this plate design in your design editor. Press Save there to keep it.");
+                    ImGui.TextUnformatted(designApplier.CanApply
+                        ? "Puts this plate design in your design editor. Press Save there to keep it."
+                        : "Opens your plate's design editor and puts this design in it. Press Save there to keep it.");
                     ImGui.TextColored(Ui.Dim, "Hold Ctrl while clicking to choose which parts to apply.");
                 }
                 else
                 {
-                    ImGui.TextUnformatted("Open your Adventurer Plate and go to Edit Plate Design to use this.");
+                    ImGui.TextUnformatted("Your Adventurer Plate can't be opened right now.");
                 }
 
                 plateItems.DrawMissingList(plateMissing);
@@ -128,10 +131,11 @@ public sealed class ApplyControls(
 
     private void ApplyPlate(PlateDesignData plate)
     {
-        var skipped = designApplier.Apply(plate);
-        captureService.Notify(skipped > 0
-            ? $"Plate design applied without {skipped} part(s) you don't have. Press Save to keep it."
-            : "Plate design applied. Press Save in the design window to keep it.");
+        designApplier.ApplyOrOpen(plate, skipped => captureService.Notify(
+            skipped < 0 ? "The design editor didn't open. Open your Adventurer Plate, go to Edit Plate Design and try again."
+            : skipped > 0 ? $"Plate design applied without {skipped} part(s) you don't have. Press Save to keep it."
+            : "Plate design applied. Press Save in the design window to keep it.",
+            skipped < 0 ? NotificationType.Warning : NotificationType.Success));
     }
 
     private void DrawPopups()

@@ -21,7 +21,8 @@ public sealed class PortraitActions(
     BannerService bannerService,
     ThumbnailService presetThumbnails,
     MenuBarState menuBarState,
-    MenuBar menuBar)
+    MenuBar menuBar,
+    WindowHandoff handoff)
 {
     public const string CapturedTagName = "Saved";
 
@@ -167,6 +168,7 @@ public sealed class PortraitActions(
                 return;
             }
 
+            handoff.StepAside(() => CanApply);
             ApplyWhenReady(preset, flags, pick, DateTime.UtcNow.AddSeconds(10));
         });
     }
