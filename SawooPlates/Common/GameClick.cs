@@ -98,7 +98,7 @@ public static unsafe class GameClick
 
             var type = component->GetComponentType();
             if (type == ComponentType.Button)
-                texts.Add($"{new string('>', depth)}button {node->NodeId} '{ButtonText((AtkComponentButton*)component)}'{(node->IsVisible() ? "" : " (hidden)")}");
+                texts.Add($"{new string('>', depth)}button {node->NodeId} '{ButtonText((AtkComponentButton*)component)}'{(node->IsVisible() ? "" : " (hidden)")}{(((AtkComponentButton*)component)->IsEnabled ? "" : " (off)")}");
             else if (type is ComponentType.List or ComponentType.TreeList)
             {
                 var list = (AtkComponentList*)component;
@@ -194,29 +194,88 @@ public static unsafe class GameControls
     }
 
     /// <summary>
-    /// Picks an entry the way a click on it does. <paramref name="attempt"/> 0 clicks the entry in the list;
-    /// 1 selects it and tells the window through the events registered on the drop-down.
+    /// Sends <paramref name="type"/> to whoever listens on <paramref name="node"/> (the component or window that
+    /// registered the event), the way the game passes a click on. Returns false when nobody listens for it.
     /// </summary>
-    public static void Select(AtkUnitBase* addon, AtkComponentDropDownList* dropDown, int index, int attempt)
+    public static bool Fire(AtkResNode* node, AtkEventType type, AtkEventData* data = null)
     {
-        if (attempt == 0)
+        if (node == null)
+            return false;
+
+        var empty = stackalloc AtkEventData[1];
+        var fired = false;
+        for (var evt = node->AtkEventManager.Event; evt != null; evt = evt->NextEvent)
         {
-            dropDown->List->DispatchItemEvent(index, AtkEventType.ListItemClick);
-            return;
+            if (evt->State.EventType != type || evt->Listener == null)
+                continue;
+
+            if (data == null)
+                *empty = default;
+            evt->Listener->ReceiveEvent(type, (int)evt->Param, evt, data != null ? data : empty);
+            fired = true;
         }
 
+        return fired;
+    }
+
+    /// <summary>Event params the window registered on the drop-down; the window gets the pick with one of these.</summary>
+    public static HashSet<int> WindowParams(AtkUnitBase* addon, AtkComponentDropDownList* dropDown)
+    {
+        var result = new HashSet<int>();
+        var node = (AtkResNode*)dropDown->OwnerNode;
+        for (var evt = node->AtkEventManager.Event; evt != null; evt = evt->NextEvent)
+        {
+            if (evt->Listener == (AtkEventListener*)addon)
+                result.Add((int)evt->Param);
+        }
+
+        return result;
+    }
+
+    /// <summary>Opens or closes the drop-down's list, like a click on it.</summary>
+    public static bool Toggle(AtkComponentDropDownList* dropDown)
+        => dropDown->Checkbox != null && Fire((AtkResNode*)dropDown->Checkbox->AtkComponentButton.OwnerNode, AtkEventType.ButtonClick);
+
+    /// <summary>
+    /// Clicks an entry of the open drop-down. The click goes to the entry's row in the list, so the list,
+    /// the drop-down and the window each handle it as they do a mouse click.
+    /// </summary>
+    public static void ClickEntry(AtkComponentDropDownList* dropDown, int index)
+    {
+        var list = dropDown->List;
+        list->ScrollToItem((short)index);
+
+        var renderer = list->GetItemRenderer(index);
+        if (renderer != null)
+        {
+            var data = stackalloc AtkEventData[1];
+            *data = default;
+            data->ListItemData.ListItemRenderer = renderer;
+            data->ListItemData.SelectedIndex = index;
+            if (Fire((AtkResNode*)renderer->AtkComponentButton.OwnerNode, AtkEventType.ButtonClick, data))
+                return;
+        }
+
+        list->DispatchItemEvent(index, AtkEventType.ListItemClick);
+    }
+
+    /// <summary>Selects the entry and hands the pick to the window itself, through the events it registered on the drop-down.</summary>
+    public static void TellWindow(AtkUnitBase* addon, AtkComponentDropDownList* dropDown, int index)
+    {
         dropDown->SelectItem(index);
 
+        var list = dropDown->List;
         var node = (AtkResNode*)dropDown->OwnerNode;
         var data = stackalloc AtkEventData[1];
         for (var evt = node->AtkEventManager.Event; evt != null; evt = evt->NextEvent)
         {
             var type = evt->State.EventType;
-            if (type is not (AtkEventType.ListItemClick or AtkEventType.ListItemSelect or AtkEventType.ValueUpdate))
+            if (evt->Listener != (AtkEventListener*)addon || type is not (AtkEventType.ListItemClick or AtkEventType.ListItemSelect or AtkEventType.ValueUpdate))
                 continue;
 
             *data = default;
             data->ListItemData.SelectedIndex = index;
+            data->ListItemData.ListItemRenderer = list != null ? list->GetItemRenderer(index) : null;
             addon->ReceiveEvent(type, (int)evt->Param, evt, data);
         }
     }

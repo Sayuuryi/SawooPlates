@@ -1,3 +1,5 @@
+using Dalamud.Game.Addon.Lifecycle;
+using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -10,9 +12,53 @@ namespace SawooPlates.Capture;
 /// as <see cref="Current"/>, so the guide next to that window can show what to pick in each row.
 /// The game keeps the window's choices in its own data, so the picks are made in the game's menus.
 /// When this opened your plate, closing Edit Plate also closes the plate and brings the Sawoo Plates window back.
+/// A row only counts as picked once the window itself got the pick: changing what a drop-down shows isn't enough,
+/// the window has to be told, or Save stays off and the plate doesn't change.
 /// </summary>
-public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framework, ExcelService excel, CaptureService captureService, WindowHandoff handoff)
+public sealed unsafe class PlateDesignApplier : IDisposable
 {
+    private readonly IPluginLog log;
+    private readonly IFramework framework;
+    private readonly ExcelService excel;
+    private readonly CaptureService captureService;
+    private readonly WindowHandoff handoff;
+    private readonly IAddonLifecycle addonLifecycle;
+
+    /// <summary>Event params Edit Plate received since the last reset, to know a pick reached it.</summary>
+    private readonly HashSet<int> _windowGot = [];
+
+    public PlateDesignApplier(IPluginLog log, IFramework framework, ExcelService excel, CaptureService captureService, WindowHandoff handoff, IAddonLifecycle addonLifecycle)
+    {
+        this.log = log;
+        this.framework = framework;
+        this.excel = excel;
+        this.captureService = captureService;
+        this.handoff = handoff;
+        this.addonLifecycle = addonLifecycle;
+        addonLifecycle.RegisterListener(AddonEvent.PreReceiveEvent, DesignAddons, OnDesignEvent);
+    }
+
+    public void Dispose() => addonLifecycle.UnregisterListener(AddonEvent.PreReceiveEvent, DesignAddons, OnDesignEvent);
+
+    private void OnDesignEvent(AddonEvent type, AddonArgs args)
+    {
+        if (args is not AddonReceiveEventArgs e)
+            return;
+
+        var eventType = (AtkEventType)e.AtkEventType;
+        if (eventType is not (AtkEventType.ListItemClick or AtkEventType.ListItemSelect or AtkEventType.ValueUpdate or AtkEventType.ButtonClick))
+            return;
+
+        _windowGot.Add(e.EventParam);
+
+        // while Use plate design is going on, note what Edit Plate gets, also from picks made by hand
+        if (_route != null)
+        {
+            var index = e.AtkEventData != 0 ? ((AtkEventData*)e.AtkEventData)->ListItemData.SelectedIndex : -1;
+            log.Debug("Edit Plate got {type} param {param} index {index}", eventType, e.EventParam, index);
+        }
+    }
+
     /// <summary>Which parts to show. <paramref name="Selective"/>: parts left out stay as they are on your plate.</summary>
     public readonly record struct Parts(bool Position = true, bool Selective = false)
     {
@@ -309,8 +355,8 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
     }
 
     /// <summary>
-    /// Picks one row, checks the drop-down shows it, and moves on to the next.
-    /// A click on the entry is tried first; when the drop-down doesn't change, the entry is selected directly.
+    /// Picks one row the way a mouse does: opens the drop-down, clicks the entry, and checks Edit Plate got the pick.
+    /// When it didn't, the pick is handed to Edit Plate directly. Then moves on to the next row.
     /// </summary>
     private void PickRow(Route route, Guide guide, int rowIndex, int attempt)
     {
@@ -323,9 +369,7 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
 
         if (rowIndex >= Rows.Length)
         {
-            PickInvert(addon, guide);
-            guide.Finished = true;
-            log.Information("Edit Plate picks: {results}", string.Join(", ", guide.Results.Select(r => $"{r.Key}={r.Value}")));
+            PickInvert(route, guide, addon, 0);
             return;
         }
 
@@ -333,72 +377,140 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
         var target = TargetName(row, guide);
         var dropDown = GameControls.DropDown(addon, row.DropDownId);
 
-        void Next() => _ = framework.RunOnTick(() => PickRow(route, guide, rowIndex + 1, 0), TimeSpan.FromMilliseconds(150));
+        void Next(RowResult result)
+        {
+            guide.Results[row.Name] = result;
+            if (dropDown != null && dropDown->IsOpen)
+                GameControls.Toggle(dropDown);
+            _ = framework.RunOnTick(() => PickRow(route, guide, rowIndex + 1, 0), TimeSpan.FromMilliseconds(200));
+        }
+
+        void Retry(int delay) => _ = framework.RunOnTick(() => PickRow(route, guide, rowIndex, attempt + 1), TimeSpan.FromMilliseconds(delay));
 
         if (target == null)
         {
-            guide.Results[row.Name] = RowResult.Kept;
-            Next();
+            Next(RowResult.Kept);
             return;
         }
 
-        if (dropDown == null)
+        if (dropDown == null || dropDown->List == null)
         {
-            guide.Results[row.Name] = RowResult.Failed;
             log.Information("Edit Plate: no drop-down {id} for {row}", row.DropDownId, row.Name);
-            Next();
+            Next(RowResult.Failed);
             return;
         }
 
-        if (string.Equals(GameControls.Shown(dropDown), target, StringComparison.OrdinalIgnoreCase))
-        {
-            guide.Results[row.Name] = RowResult.Picked;
-            Next();
-            return;
-        }
-
+        var windowParams = GameControls.WindowParams(addon, dropDown);
+        var told = _windowGot.Overlaps(windowParams);
+        var shows = string.Equals(GameControls.Shown(dropDown), target, StringComparison.OrdinalIgnoreCase);
         var index = GameControls.IndexOf(dropDown, target);
+
+        if (attempt == 0 && shows)
+        {
+            Next(RowResult.Picked); // already yours, nothing to change
+            return;
+        }
+
         if (index < 0)
         {
-            guide.Results[row.Name] = RowResult.NotInList; // not unlocked, or hidden by the list filter
-            Next();
+            Next(RowResult.NotInList); // not unlocked, or hidden by the list filter
             return;
         }
 
-        if (attempt > 1)
+        switch (attempt)
         {
-            guide.Results[row.Name] = RowResult.Failed;
-            log.Information("Edit Plate: {row} still shows '{shown}' after picking '{target}'", row.Name, GameControls.Shown(dropDown), target);
-            Next();
-            return;
-        }
+            case 0:
+                // open the list, like clicking the drop-down
+                if (!dropDown->IsOpen)
+                    GameControls.Toggle(dropDown);
+                Retry(250);
+                return;
 
-        GameControls.Select(addon, dropDown, index, attempt);
-        _ = framework.RunOnTick(() => PickRow(route, guide, rowIndex, attempt + 1), TimeSpan.FromMilliseconds(250));
+            case 1:
+                _windowGot.Clear();
+                GameControls.ClickEntry(dropDown, index);
+                Retry(300);
+                return;
+
+            case 2:
+                if (shows && told)
+                {
+                    Next(RowResult.Picked);
+                    return;
+                }
+
+                // the click didn't reach Edit Plate: hand it the pick directly
+                log.Information("Edit Plate: clicking '{target}' in {row} didn't reach the window (shows '{shown}', told {told}), telling it directly",
+                    target, row.Name, GameControls.Shown(dropDown), told);
+                _windowGot.Clear();
+                GameControls.TellWindow(addon, dropDown, index);
+                Retry(300);
+                return;
+
+            default:
+                if (shows && told)
+                {
+                    Next(RowResult.Picked);
+                    return;
+                }
+
+                log.Information("Edit Plate: {row} shows '{shown}', window got it: {told}, after picking '{target}'. Window params: {events}",
+                    row.Name, GameControls.Shown(dropDown), told, target, string.Join(",", windowParams));
+                Next(RowResult.Failed);
+                return;
+        }
     }
 
-    private void PickInvert(AtkUnitBase* addon, Guide guide)
+    private void PickInvert(Route route, Guide guide, AtkUnitBase* addon, int attempt)
     {
+        void Finish(RowResult result)
+        {
+            guide.Results[InvertRow] = result;
+            guide.Finished = true;
+            log.Information("Edit Plate picks: {results}. Buttons: {buttons}",
+                string.Join(", ", guide.Results.Select(r => $"{r.Key}={r.Value}")),
+                string.Join("; ", GameClick.Describe(addon).Where(t => t.StartsWith("button"))));
+        }
+
         if (!guide.Parts.Position)
         {
-            guide.Results[InvertRow] = RowResult.Kept;
+            Finish(RowResult.Kept);
             return;
         }
 
         var box = GameControls.CheckBox(addon, InvertCheckBoxId);
         if (box == null)
         {
-            guide.Results[InvertRow] = RowResult.Failed;
+            Finish(RowResult.Failed);
             return;
         }
 
-        if (box->IsChecked != guide.Design.InvertPortraitPlacement && !GameControls.Toggle(addon, box))
+        if (box->IsChecked == guide.Design.InvertPortraitPlacement)
         {
-            guide.Results[InvertRow] = RowResult.Failed;
+            Finish(RowResult.Picked);
             return;
         }
 
-        guide.Results[InvertRow] = RowResult.Picked;
+        if (attempt > 0)
+        {
+            Finish(RowResult.Failed);
+            return;
+        }
+
+        // a click flips the box first and then tells Edit Plate
+        box->AtkComponentButton.SetChecked(guide.Design.InvertPortraitPlacement);
+        if (!GameControls.Toggle(addon, box))
+        {
+            Finish(RowResult.Failed);
+            return;
+        }
+
+        _ = framework.RunOnTick(() =>
+        {
+            var again = DesignAddon;
+            if (_route == route && ReferenceEquals(Current, guide) && again != null)
+                PickInvert(route, guide, again, attempt + 1);
+        }, TimeSpan.FromMilliseconds(250));
     }
 
     /// <summary>Once per session: what Edit Plate is made of, so picking rows by itself can be added later.</summary>

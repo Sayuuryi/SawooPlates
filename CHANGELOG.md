@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.25.0]
+
+### Plate design
+- Use plate design now opens each drop-down in Edit Plate and clicks the entry like the mouse does, so the game takes the pick: Save turns on and the plate really changes
+- A row only shows as picked once Edit Plate got it; before, the drop-down could show the new name without anything changing
+- Invert Portrait Placement is flipped the same way
+
 ## [0.9.24.0]
 
 ### Plate design
