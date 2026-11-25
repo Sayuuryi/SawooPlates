@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.19.0]
+
+### Plate design
+- Ctrl+click on Apply plate design opens a window to pick the parts, with a preview of what you picked
+- Picked decorations replace only yours of the same kind; the rest of your plate stays as it is
+- The portrait position can be picked or left as it is
+
 ## [0.9.18.0]
 
 ### Recent and Presets

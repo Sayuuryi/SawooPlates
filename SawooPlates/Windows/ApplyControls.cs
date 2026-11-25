@@ -10,27 +10,26 @@ namespace SawooPlates.Windows;
 /// and Ctrl+click lets you pick which parts to apply.
 /// </summary>
 public sealed class ApplyControls(
-    ITextureProvider textures,
     PortraitActions actions,
     PlateDesignApplier designApplier,
     PlateItems plateItems,
-    CaptureService captureService)
+    CaptureService captureService,
+    PlatePartsWindow partsWindow)
 {
     private const string ConfirmPortraitPopup = "Apply portrait?##SawooConfirmPortrait";
     private const string ConfirmPlatePopup = "Apply plate design?##SawooConfirmPlate";
-    private const string ChoosePlatePopup = "Choose plate parts##SawooChoosePlate";
 
     private PortraitPresetData? _pendingPreset;
     private ImportFlags _pendingFlags;
     private List<PlateItems.PartInfo> _pendingMissing = [];
 
     private PlateDesignData? _pendingPlate;
-    private List<PlateItems.PartInfo> _plateParts = [];
-    private readonly HashSet<int> _chosen = [];
 
     private string? _openPopup;
 
-    public void Draw(PortraitPresetData preset, PlateDesignData? plate, ImportFlags flags, bool frameKnown = true, bool decorationKnown = true)
+    /// <param name="preview">Draws a plate design at a width; used for the preview in the choose-parts window.</param>
+    public void Draw(PortraitPresetData preset, PlateDesignData? plate, ImportFlags flags, bool frameKnown = true, bool decorationKnown = true,
+        Action<PlateDesignData, float>? preview = null, string? title = null)
     {
         var portraitMissing = Missing(plateItems.GetParts(null, preset, "Portrait", frameKnown, decorationKnown));
 
@@ -76,17 +75,7 @@ public sealed class ApplyControls(
             {
                 if (ImGui.GetIO().KeyCtrl)
                 {
-                    Ask(ChoosePlatePopup, () =>
-                    {
-                        _pendingPlate = plate;
-                        _plateParts = plateParts;
-                        _chosen.Clear();
-                        for (var i = 0; i < plateParts.Count; i++)
-                        {
-                            if (plateParts[i].Own.State == OwnState.Have)
-                                _chosen.Add(i);
-                        }
-                    });
+                    partsWindow.Show(title ?? string.Empty, plate, plateParts, preview, ApplyPlate);
                 }
                 else if (plateMissing.Count > 0)
                 {
@@ -94,7 +83,7 @@ public sealed class ApplyControls(
                 }
                 else
                 {
-                    ApplyPlate(plate);
+                    ApplyPlate(plate, PlateDesignApplier.Parts.All);
                 }
             }
 
@@ -129,9 +118,9 @@ public sealed class ApplyControls(
         _openPopup = popup;
     }
 
-    private void ApplyPlate(PlateDesignData plate)
+    private void ApplyPlate(PlateDesignData plate, PlateDesignApplier.Parts parts)
     {
-        designApplier.ApplyOrOpen(plate, skipped => captureService.Notify(
+        designApplier.ApplyOrOpen(plate, parts, skipped => captureService.Notify(
             skipped < 0 ? "The design editor didn't open. Open your Adventurer Plate, go to Edit Plate Design and try again."
             : skipped > 0 ? $"Plate design applied without {skipped} part(s) you don't have. Press Save to keep it."
             : "Plate design applied. Press Save in the design window to keep it.",
@@ -194,7 +183,7 @@ public sealed class ApplyControls(
 
                 if (ImGui.Button("Apply", buttonSize))
                 {
-                    ApplyPlate(pendingPlate);
+                    ApplyPlate(pendingPlate, PlateDesignApplier.Parts.All);
                     _pendingPlate = null;
                     ImGui.CloseCurrentPopup();
                 }
@@ -208,77 +197,5 @@ public sealed class ApplyControls(
             }
         }
 
-        // --- choose plate parts
-        ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f));
-        using (var popup = ImRaii.PopupModal(ChoosePlatePopup, ImGuiWindowFlags.AlwaysAutoResize))
-        {
-            if (popup.Success && _pendingPlate is { } pendingPlate)
-            {
-                ImGui.TextUnformatted("Pick the parts to apply. Parts you don't have can't be picked.");
-                ImGui.Spacing();
-
-                var icon = ImGui.GetFrameHeight();
-                for (var i = 0; i < _plateParts.Count; i++)
-                {
-                    var part = _plateParts[i];
-                    var have = part.Own.State == OwnState.Have;
-                    var on = _chosen.Contains(i);
-
-                    using (ImRaii.PushId(i))
-                    using (ImRaii.Disabled(!have))
-                    {
-                        if (ImGui.Checkbox("##Pick", ref on))
-                        {
-                            if (on) _chosen.Add(i);
-                            else _chosen.Remove(i);
-                        }
-                    }
-
-                    ImGui.SameLine();
-                    Ui.IconFit(textures, part.IconId, icon);
-                    ImGui.SameLine();
-                    ImGui.TextUnformatted(part.Name);
-                    ImGui.SameLine();
-                    ImGui.TextColored(have ? Ui.Dim : Ui.Bad, have ? part.Kind : $"{part.Kind} · you don't have this");
-                }
-
-                ImGui.Spacing();
-                ImGui.Separator();
-                ImGui.Spacing();
-
-                using (ImRaii.Disabled(_chosen.Count == 0))
-                {
-                    if (ImGui.Button("Apply", buttonSize))
-                    {
-                        ApplyPlate(Filter(pendingPlate));
-                        _pendingPlate = null;
-                        ImGui.CloseCurrentPopup();
-                    }
-                }
-
-                ImGui.SameLine();
-                if (ImGui.Button("Cancel", buttonSize))
-                {
-                    _pendingPlate = null;
-                    ImGui.CloseCurrentPopup();
-                }
-            }
-        }
-    }
-
-    /// <summary>The plate design with only the picked parts; the rest stay as they are on your plate.</summary>
-    private PlateDesignData Filter(PlateDesignData plate)
-    {
-        var picked = _chosen.Select(i => _plateParts[i]).ToList();
-        ushort Pick(PlateItems.PlatePart part) => picked.FirstOrDefault(p => p.Part == part)?.PartId ?? 0;
-
-        return new PlateDesignData
-        {
-            BasePlate = Pick(PlateItems.PlatePart.Base),
-            TopBorder = (byte)Pick(PlateItems.PlatePart.TopBorder),
-            BottomBorder = (byte)Pick(PlateItems.PlatePart.BottomBorder),
-            Decorations = picked.Where(p => p.Part == PlateItems.PlatePart.Decoration).Select(p => p.PartId).ToArray(),
-            InvertPortraitPlacement = plate.InvertPortraitPlacement,
-        };
     }
 }

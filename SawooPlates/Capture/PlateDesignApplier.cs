@@ -10,8 +10,18 @@ namespace SawooPlates.Capture;
 /// Puts a saved plate design into the game's "Edit Design" window for your own Adventurer Plate.
 /// Only parts you have unlocked are used; the game's own Save button keeps the result, Cancel restores your old design.
 /// </summary>
-public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framework, CollectionService collection, WindowHandoff handoff)
+public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framework, ExcelService excel, CollectionService collection, WindowHandoff handoff)
 {
+    /// <summary>
+    /// Which parts to write. Base plate and borders are written when their id isn't 0.
+    /// <paramref name="MergeDecorations"/>: each picked decoration replaces yours of the same kind (backing, frame...)
+    /// and your others stay; otherwise your decorations are replaced by the design's.
+    /// </summary>
+    public readonly record struct Parts(bool Decorations = true, bool Position = true, bool MergeDecorations = false)
+    {
+        public static Parts All => new();
+    }
+
     // the game calls the window CharaCardDesignSetting; its layout file is CharacterCardDesignSetting
     private static readonly string[] DesignAddons = ["CharaCardDesignSetting", "CharacterCardDesignSetting"];
 
@@ -63,11 +73,11 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
     /// Applies the design, first opening your own Adventurer Plate and its design editor when they're closed.
     /// <paramref name="done"/> gets the number of skipped parts, or -1 when the editor couldn't be opened.
     /// </summary>
-    public void ApplyOrOpen(PlateDesignData design, Action<int> done)
+    public void ApplyOrOpen(PlateDesignData design, Parts parts, Action<int> done)
     {
         if (CanApply)
         {
-            done(Apply(design));
+            done(Apply(design, parts));
             return;
         }
 
@@ -85,16 +95,16 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
                 agent->OpenCharaCard((GameObject*)control->LocalPlayer);
 
             handoff.StepAside(() => CanApply || OwnPlateOpen);
-            OpenDesignWhenReady(design, done, DateTime.UtcNow.AddSeconds(10), designShown: false);
+            OpenDesignWhenReady(design, parts, done, DateTime.UtcNow.AddSeconds(10), designShown: false);
         });
     }
 
-    private void OpenDesignWhenReady(PlateDesignData design, Action<int> done, DateTime giveUpAt, bool designShown)
+    private void OpenDesignWhenReady(PlateDesignData design, Parts parts, Action<int> done, DateTime giveUpAt, bool designShown)
     {
         if (CanApply)
         {
             // give the window a moment to fill in your current design before changing it
-            _ = framework.RunOnTick(() => done(CanApply ? Apply(design) : -1), TimeSpan.FromMilliseconds(500));
+            _ = framework.RunOnTick(() => done(CanApply ? Apply(design, parts) : -1), TimeSpan.FromMilliseconds(500));
             return;
         }
 
@@ -112,11 +122,11 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
             designShown = true;
         }
 
-        _ = framework.RunOnTick(() => OpenDesignWhenReady(design, done, giveUpAt, designShown), TimeSpan.FromMilliseconds(200));
+        _ = framework.RunOnTick(() => OpenDesignWhenReady(design, parts, done, giveUpAt, designShown), TimeSpan.FromMilliseconds(200));
     }
 
     /// <summary>Writes the design into the editor. Returns how many parts were left out because they aren't unlocked.</summary>
-    public int Apply(PlateDesignData design)
+    public int Apply(PlateDesignData design, Parts parts)
     {
         if (!CanApply)
             return -1;
@@ -149,23 +159,44 @@ public sealed unsafe class PlateDesignApplier(IPluginLog log, IFramework framewo
                 skipped++;
         }
 
-        var decorations = new List<ushort>();
-        foreach (var id in design.Decorations.Where(d => d != 0))
+        if (parts.Decorations)
         {
-            if (collection.PlateDecoration(id).State == OwnState.Have)
-                decorations.Add(id);
-            else
-                skipped++;
+            var incoming = new List<ushort>();
+            foreach (var id in design.Decorations.Where(d => d != 0))
+            {
+                if (collection.PlateDecoration(id).State == OwnState.Have)
+                    incoming.Add(id);
+                else
+                    skipped++;
+            }
+
+            var slots = plate.Decorations;
+            var result = new List<ushort>();
+            if (parts.MergeDecorations)
+            {
+                // keep yours, except the kinds being replaced
+                var replaced = incoming.Select(Component).ToHashSet();
+                for (var i = 0; i < slots.Length; i++)
+                {
+                    if (slots[i] != 0 && !replaced.Contains(Component(slots[i])))
+                        result.Add(slots[i]);
+                }
+            }
+
+            result.AddRange(incoming);
+            for (var i = 0; i < slots.Length; i++)
+                slots[i] = i < result.Count ? result[i] : (ushort)0;
+            plate.NumDecorations = (byte)Math.Min(result.Count, slots.Length);
         }
 
-        var slots = plate.Decorations;
-        for (var i = 0; i < slots.Length; i++)
-            slots[i] = i < decorations.Count ? decorations[i] : (ushort)0;
-        plate.NumDecorations = (byte)Math.Min(decorations.Count, slots.Length);
-
-        data->InvertPortraitPlacement = design.InvertPortraitPlacement;
+        if (parts.Position)
+            data->InvertPortraitPlacement = design.InvertPortraitPlacement;
 
         log.Debug("Applied plate design ({skipped} parts skipped)", skipped);
         return skipped;
     }
+
+    /// <summary>Which slot kind a decoration fills (backing, pattern, portrait frame, plate frame, accent).</summary>
+    private byte Component(ushort decoration)
+        => excel.TryGetRow<CharaCardDecoration>(decoration, out var row) ? row.Component : (byte)0;
 }

@@ -68,6 +68,7 @@ public static class PluginServices
             .AddSingleton<GearCollectionStore>()
             .AddSingleton<PlateRenderer>()
             .AddSingleton<BackupService>()
+            .AddSingleton<PlatePartsWindow>()
             .AddSingleton<ApplyControls>()
             .AddSingleton<SawooPlates.Windows.Tabs.RecentTab>()
             .AddSingleton<SawooPlates.Windows.Tabs.PresetsTab>()
@@ -145,6 +146,7 @@ public sealed class Plugin : IDalamudPlugin
             _windowSystem.AddWindow(_services.GetRequiredService<PlateCaptureButton>());
             _windowSystem.AddWindow(_services.GetRequiredService<PartyCaptureBar>());
             _windowSystem.AddWindow(_services.GetRequiredService<ImportPromptWindow>());
+            _windowSystem.AddWindow(_services.GetRequiredService<PlatePartsWindow>());
 
             _commandManager.AddHandler(Command, new CommandInfo(OnCommand) { HelpMessage = "Open Sawoo Plates. Add \"config\" to open the settings." });
             _commandManager.AddHandler(CommandAlias, new CommandInfo(OnCommand) { ShowInHelp = false });

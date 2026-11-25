@@ -411,7 +411,9 @@ public sealed class RecentTab(
 
     private void DrawActions(CapturedPortrait capture)
     {
-        applyControls.Draw(capture.Preset, capture.Plate, PortraitActions.GetImportFlags(capture), capture.FrameKnown, capture.DecorationKnown);
+        applyControls.Draw(capture.Preset, capture.Plate, PortraitActions.GetImportFlags(capture), capture.FrameKnown, capture.DecorationKnown,
+            (design, width) => plateRenderer.Draw(design, capture.Preset, thumbnails, capture.Id, width, capture.FrameKnown, capture.DecorationKnown),
+            capture.Name);
 
         ImGui.SameLine();
         if (Ui.Button(FontAwesomeIcon.Save, "Save as preset"))

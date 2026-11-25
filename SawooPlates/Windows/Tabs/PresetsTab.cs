@@ -310,7 +310,9 @@ public sealed class PresetsTab(
 
         ImGui.Spacing();
 
-        applyControls.Draw(preset.Preset!, preset.Plate, ImportFlags.All);
+        applyControls.Draw(preset.Preset!, preset.Plate, ImportFlags.All,
+            preview: (design, width) => plateRenderer.Draw(design, preset.Preset!, thumbnails, preset.Id, width),
+            title: preset.Name);
 
         ImGui.SameLine();
         if (Ui.Button(FontAwesomeIcon.Copy, "Copy code"))
