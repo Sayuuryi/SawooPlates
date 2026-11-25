@@ -80,8 +80,23 @@ public sealed unsafe class PlateGuideWindow : Window
         }
 
         var scale = ImGuiHelpers.GlobalScale;
-        ImGui.TextColored(Ui.Accent, "Pick these in Edit Plate");
-        ImGui.TextColored(Ui.Dim, "Then press Save.");
+        var left = _rows.Count(r => Result(guide, r.Row) is not (PlateDesignApplier.RowResult.Picked or PlateDesignApplier.RowResult.Kept));
+        if (!guide.Finished)
+        {
+            ImGui.TextColored(Ui.Accent, "Picking the design...");
+            ImGui.TextColored(Ui.Dim, "Wait a moment.");
+        }
+        else if (left == 0)
+        {
+            ImGui.TextColored(Ui.Good, "Design picked");
+            ImGui.TextColored(Ui.Dim, "Check it and press Save.");
+        }
+        else
+        {
+            ImGui.TextColored(Ui.Accent, left == 1 ? "Pick 1 row yourself" : $"Pick {left} rows yourself");
+            ImGui.TextColored(Ui.Dim, "The rest is picked. Then press Save.");
+        }
+
         ImGui.Spacing();
 
         var icon = 28 * scale;
@@ -107,6 +122,14 @@ public sealed unsafe class PlateGuideWindow : Window
             }
 
             ImGui.SetCursorPosY(y + (icon - ImGui.GetTextLineHeight()) / 2f);
+            var result = Result(guide, row);
+            if (result == PlateDesignApplier.RowResult.Picked)
+            {
+                using (ImRaii.PushFont(UiBuilder.IconFont))
+                    ImGui.TextColored(Ui.Good, FontAwesomeIcon.Check.ToIconString());
+                ImGui.SameLine();
+            }
+
             if (part == null)
             {
                 ImGui.TextColored(Ui.Dim, guide.Parts.Selective ? "Keep yours" : "None");
@@ -122,6 +145,16 @@ public sealed unsafe class PlateGuideWindow : Window
             else
             {
                 ImGui.TextUnformatted(part.Name);
+                if (result == PlateDesignApplier.RowResult.NotInList)
+                {
+                    ImGui.SameLine();
+                    ImGui.TextColored(Ui.Warn, "· not in the list, set the filter to All");
+                }
+                else if (result == PlateDesignApplier.RowResult.Failed)
+                {
+                    ImGui.SameLine();
+                    ImGui.TextColored(Ui.Warn, "· pick it yourself");
+                }
             }
 
             ImGui.SetCursorPosY(y + icon + 2 * scale);
@@ -131,10 +164,22 @@ public sealed unsafe class PlateGuideWindow : Window
         ImGui.TextColored(Ui.Dim, "Invert Portrait Placement");
         ImGui.SameLine(labelWidth + icon + ImGui.GetStyle().ItemSpacing.X);
         if (guide.Parts.Position)
+        {
+            if (Result(guide, PlateDesignApplier.InvertRow) == PlateDesignApplier.RowResult.Picked)
+            {
+                using (ImRaii.PushFont(UiBuilder.IconFont))
+                    ImGui.TextColored(Ui.Good, FontAwesomeIcon.Check.ToIconString());
+                ImGui.SameLine();
+            }
+
             ImGui.TextUnformatted(guide.Design.InvertPortraitPlacement ? "On" : "Off");
+        }
         else
             ImGui.TextColored(Ui.Dim, "Keep yours");
     }
+
+    private static PlateDesignApplier.RowResult? Result(PlateDesignApplier.Guide guide, string row)
+        => guide.Results.TryGetValue(row, out var result) ? result : null;
 
     private List<(string Row, PlateItems.PartInfo? Part)> BuildRows(PlateDesignApplier.Guide guide)
     {

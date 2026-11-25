@@ -143,3 +143,99 @@ public static unsafe class GameClick
         return false;
     }
 }
+
+/// <summary>Drop-down lists and checkboxes in game windows, found by node id.</summary>
+public static unsafe class GameControls
+{
+    public static AtkComponentDropDownList* DropDown(AtkUnitBase* addon, uint nodeId)
+    {
+        var component = Component(addon, nodeId);
+        return component != null && component->GetComponentType() == ComponentType.DropDownList ? (AtkComponentDropDownList*)component : null;
+    }
+
+    public static AtkComponentCheckBox* CheckBox(AtkUnitBase* addon, uint nodeId)
+    {
+        var component = Component(addon, nodeId);
+        return component != null && component->GetComponentType() == ComponentType.CheckBox ? (AtkComponentCheckBox*)component : null;
+    }
+
+    private static AtkComponentBase* Component(AtkUnitBase* addon, uint nodeId)
+    {
+        if (addon == null)
+            return null;
+
+        var node = addon->GetNodeById(nodeId);
+        return node != null && (int)node->Type >= 1000 ? ((AtkComponentNode*)node)->Component : null;
+    }
+
+    /// <summary>Index of the entry with this text, or -1.</summary>
+    public static int IndexOf(AtkComponentDropDownList* dropDown, string text)
+    {
+        var list = dropDown->List;
+        if (list == null)
+            return -1;
+
+        for (var i = 0; i < list->GetItemCount(); i++)
+        {
+            if (string.Equals(list->GetItemLabel(i).ToString().Trim(), text, StringComparison.OrdinalIgnoreCase))
+                return i;
+        }
+
+        return -1;
+    }
+
+    /// <summary>The text shown on the closed drop-down.</summary>
+    public static string Shown(AtkComponentDropDownList* dropDown)
+    {
+        var box = dropDown->Checkbox;
+        if (box == null || box->AtkComponentButton.ButtonTextNode == null)
+            return string.Empty;
+        return box->AtkComponentButton.ButtonTextNode->NodeText.ToString().Trim();
+    }
+
+    /// <summary>
+    /// Picks an entry the way a click on it does. <paramref name="attempt"/> 0 clicks the entry in the list;
+    /// 1 selects it and tells the window through the events registered on the drop-down.
+    /// </summary>
+    public static void Select(AtkUnitBase* addon, AtkComponentDropDownList* dropDown, int index, int attempt)
+    {
+        if (attempt == 0)
+        {
+            dropDown->List->DispatchItemEvent(index, AtkEventType.ListItemClick);
+            return;
+        }
+
+        dropDown->SelectItem(index);
+
+        var node = (AtkResNode*)dropDown->OwnerNode;
+        var data = stackalloc AtkEventData[1];
+        for (var evt = node->AtkEventManager.Event; evt != null; evt = evt->NextEvent)
+        {
+            var type = evt->State.EventType;
+            if (type is not (AtkEventType.ListItemClick or AtkEventType.ListItemSelect or AtkEventType.ValueUpdate))
+                continue;
+
+            *data = default;
+            data->ListItemData.SelectedIndex = index;
+            addon->ReceiveEvent(type, (int)evt->Param, evt, data);
+        }
+    }
+
+    /// <summary>Clicks a checkbox, like the mouse does.</summary>
+    public static bool Toggle(AtkUnitBase* addon, AtkComponentCheckBox* box)
+    {
+        var node = (AtkResNode*)box->OwnerNode;
+        var data = stackalloc AtkEventData[1];
+        for (var evt = node->AtkEventManager.Event; evt != null; evt = evt->NextEvent)
+        {
+            if (evt->State.EventType != AtkEventType.ButtonClick)
+                continue;
+
+            *data = default;
+            addon->ReceiveEvent(AtkEventType.ButtonClick, (int)evt->Param, evt, data);
+            return true;
+        }
+
+        return false;
+    }
+}

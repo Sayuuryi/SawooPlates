@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.24.0]
+
+### Plate design
+- Use plate design picks each row in Edit Plate by itself and checks that the row shows it
+- The list next to Edit Plate marks picked rows, and says which ones to pick yourself and why
+- Invert Portrait Placement is set too
+
 ## [0.9.23.0]
 
 ### Plate design
